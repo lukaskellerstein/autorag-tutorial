@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "playwright-autorag-tutor": {
+            "command": "npx",
+            "args": [
+                "@playwright/mcp@latest",
+                "--isolated"
+            ]
+        }
+    }
+}
