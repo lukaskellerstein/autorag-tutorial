@@ -1,5 +1,5 @@
 """
-L2-M1.1 — Advanced Retrieval Strategies
+L2-M1.2 — Advanced Retrieval Strategies
 
 This lesson explores hybrid retrieval (BM25 + vector search), fusion
 strategies (RRF vs Convex Combination), and reranking pipelines. We
@@ -488,6 +488,18 @@ def explain_reranking() -> None:
     print("  similarity via MaxSim. This gives near-cross-encoder accuracy")
     print("  with much better efficiency, since passage embeddings can be")
     print("  precomputed. A strong middle ground between speed and quality.")
+    print()
+    print("All Available Reranker Modules in AutoRAG:")
+    print("-" * 40)
+    rerankers = [
+        "monot5", "tart", "upr", "koreranker", "pass_reranker",
+        "cohere_reranker", "rankgpt", "jina_reranker", "colbert_reranker",
+        "sentence_transformer_reranker", "flag_embedding_reranker",
+        "flag_embedding_llm_reranker", "time_reranker", "openvino_reranker",
+        "voyageai_reranker", "mixedbreadai_reranker", "flashrank_reranker",
+    ]
+    for i, name in enumerate(rerankers, 1):
+        print(f"  {i:2d}. {name}")
 
 
 def explain_multi_stage() -> None:
@@ -586,7 +598,7 @@ def compare_results() -> None:
 def main() -> None:
     """Run all steps of the advanced retrieval strategies lesson."""
     print("=" * 60)
-    print("L2-M1.1 — Advanced Retrieval Strategies")
+    print("L2-M1.2 — Advanced Retrieval Strategies")
     print("=" * 60)
 
     print("\n" + "=" * 60)

@@ -9,7 +9,7 @@ AutoRAG finds the optimal RAG configuration through automated evaluation. But an
 
 ## Prerequisites
 
-- Completed: L2-M1 (all lessons -- Advanced Retrieval, Embedding Comparison, Custom Metrics)
+- Completed: L2-M1 (all lessons -- Intermediate Pipeline Nodes, Advanced Retrieval, Embedding Comparison, Custom Metrics)
 - Completed: L2-M2.1 (Custom Modules)
 - Familiarity with Kubernetes / OpenShift concepts (pods, services, routes)
 - Understanding of model serving (vLLM, KServe)

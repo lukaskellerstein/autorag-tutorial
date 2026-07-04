@@ -1,4 +1,4 @@
-# L2-M1.3 -- Custom Evaluation Metrics
+# L2-M1.4 -- Custom Evaluation Metrics
 
 **Level:** Practitioner
 **Duration:** 30 min
@@ -9,7 +9,7 @@ AutoRAG ships with standard metrics (BLEU, ROUGE, F1, etc.), but real-world RAG 
 
 ## Prerequisites
 
-- Completed: L1-M3.2 (Evaluation Basics)
+- Completed: L2-M1.3 (Embedding Model Comparison)
 - Python 3.10+ with `uv` installed
 - Familiarity with AutoRAG's evaluation pipeline
 
@@ -87,7 +87,7 @@ The lesson explains how to register custom metrics so they can be referenced in 
 ## Running the Lesson
 
 ```bash
-cd tutorial/level_2/M1_advanced_optimization/3_custom_metrics
+cd tutorial/level_2/M1_advanced_optimization/4_custom_metrics
 uv sync
 uv run python main.py
 ```
@@ -131,4 +131,4 @@ Lesson complete!
 
 ## Next Steps
 
-Continue to L2-M2.1 (Custom Modules) to learn how to build custom pipeline components -- retrievers, rerankers, and generators -- that plug into AutoRAG's evaluation framework.
+Continue to **L2-M2.1 (Custom Modules)** to learn how to build custom pipeline components -- retrievers, rerankers, and generators -- that plug into AutoRAG's evaluation framework.

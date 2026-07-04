@@ -1,4 +1,4 @@
-# L2-M1.1 — Advanced Retrieval Strategies
+# L2-M1.2 — Advanced Retrieval Strategies
 
 **Level:** Practitioner
 **Duration:** 45 min
@@ -10,6 +10,7 @@ This lesson explores hybrid retrieval strategies that combine lexical (BM25) and
 ## Prerequisites
 
 - Completed: L1-M3.1 (Configuration YAML), L1-M3.2 (Running Evaluations)
+- Completed: L2-M1.1 (Intermediate Pipeline Nodes)
 - Ollama running with `gemma4:e2b` model
 - Python 3.10+, `uv` installed
 
@@ -106,7 +107,7 @@ compare_results()
 ## Running the Lesson
 
 ```bash
-cd tutorial/level_2/M1_advanced_optimization/1_advanced_retrieval
+cd tutorial/level_2/M1_advanced_optimization/2_advanced_retrieval
 uv sync
 uv run python main.py
 ```
@@ -123,7 +124,7 @@ uv run python main.py   # in another terminal
 
 ```
 ============================================================
-L2-M1.1 — Advanced Retrieval Strategies
+L2-M1.2 — Advanced Retrieval Strategies
 ============================================================
 
 ============================================================
@@ -191,4 +192,4 @@ Done!
 
 ## Next Steps
 
-In **L2-M1.2 — Embedding Model Comparison**, you will evaluate multiple embedding models (BGE, E5, GTE, nomic-embed-text) on the same corpus to understand how the embedding model choice affects retrieval quality, and analyze the tradeoffs between model size, speed, and accuracy.
+In **L2-M1.3 -- Embedding Model Comparison**, you will evaluate multiple embedding models (BGE, E5, GTE, nomic-embed-text) on the same corpus to understand how the embedding model choice affects retrieval quality, and analyze the tradeoffs between model size, speed, and accuracy.

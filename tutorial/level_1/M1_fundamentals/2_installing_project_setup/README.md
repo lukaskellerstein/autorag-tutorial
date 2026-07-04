@@ -136,16 +136,61 @@ AutoRAG provides several CLI commands:
 | `autorag evaluate` | Run a full evaluation experiment |
 | `autorag dashboard` | Launch the Streamlit results dashboard |
 | `autorag run_api` | Deploy the best pipeline as a FastAPI server |
+| `autorag run_web` | Launch a Gradio web UI for interactive testing |
 | `autorag validate` | Validate a config YAML without running evaluation |
 | `autorag extract_best_config` | Extract the optimal configuration from results |
+| `autorag restart_evaluate` | Resume a previously interrupted evaluation run |
 
-The most common workflow is: `validate` your config, `evaluate` the experiment, view results with `dashboard`, then `extract_best_config` or `run_api` to use the winning pipeline.
+The most common workflow is: `validate` your config, `evaluate` the experiment, view results with `dashboard`, then `extract_best_config` or `run_api`/`run_web` to use the winning pipeline.
 
-### Step 6: Configuration YAML
+### Step 6: Vector Database Configuration
+
+AutoRAG requires a top-level `vectordb` section in the config YAML that defines where embeddings are stored:
+
+```yaml
+vectordb:
+  - name: default
+    db_type: chroma
+    client_type: persistent
+    path: ./chroma_db
+```
+
+Supported vector databases: Chroma, Qdrant, Milvus, Weaviate, Pinecone, and Couchbase. The `vectordb` section is separate from `node_lines` and applies to all retrieval modules that use vector search.
+
+### Step 7: LLM Backends
+
+AutoRAG uses LlamaIndex for LLM access. The generator config specifies `llm` (the backend) and `model` (the model name) as separate fields:
+
+| Backend | Description |
+|---------|-------------|
+| `ollama` | Local models via Ollama (default for this tutorial) |
+| `openai` | OpenAI API (GPT-4o, GPT-4, GPT-3.5) |
+| `openailike` | OpenAI-compatible APIs (e.g., local servers) |
+| `huggingfacellm` | HuggingFace Inference API or local models |
+| `bedrock` | AWS Bedrock (Claude, Titan, etc.) |
+| `vllm` | vLLM for high-throughput local serving |
+
+Example generator config for Ollama:
+
+```yaml
+- module_type: llama_index_llm
+  llm: ollama
+  model: gemma4:e2b
+```
+
+Note: AutoRAG does NOT use LiteLLM format (e.g., `ollama/gemma4:e2b`). The `llm` and `model` fields are always separate.
+
+### Step 8: Configuration YAML
 
 The config YAML defines the evaluation search space. Here is a simplified example:
 
 ```yaml
+vectordb:
+  - name: default
+    db_type: chroma
+    client_type: persistent
+    path: ./chroma_db
+
 node_lines:
   - node_line_name: retrieve_and_generate
     nodes:
@@ -164,14 +209,17 @@ node_lines:
         strategy:
           metrics: [generation_f1, rouge]
         modules:
-          - module_type: llm
-            llm: ollama/gemma4:e2b
+          - module_type: llama_index_llm
+            llm: ollama
+            model: gemma4:e2b
 ```
 
 Key concepts:
+- **vectordb** configures the vector store for embedding storage.
 - **node_lines** group nodes into a sequential pipeline.
 - Each **node** lists candidate **modules** with parameter ranges.
 - **strategy.metrics** controls which metric drives greedy optimization.
+- Generator uses `llama_index_llm` with separate `llm` and `model` fields.
 - AutoRAG evaluates all combinations and selects the best module at each node.
 
 ## Running the Lesson
@@ -276,25 +324,60 @@ All validations passed successfully.
   Step 5: AutoRAG CLI Commands
 ============================================================
 
-  autorag evaluate
-    Run a full evaluation experiment.
-    ...
-
-  autorag dashboard
-    Launch the Streamlit dashboard to visualize results.
-    ...
+  autorag evaluate ...
+  autorag dashboard ...
+  autorag run_api ...
+  autorag run_web ...
+  autorag validate ...
+  autorag extract_best_config ...
+  autorag restart_evaluate ...
 
 ============================================================
-  Step 6: Sample Configuration YAML
+  Step 6: Vector Database Configuration
 ============================================================
 
+    vectordb:
+      - name: default
+        db_type: chroma
+        ...
+
+============================================================
+  Step 7: LLM Backends
+============================================================
+
+  ollama               Local models via Ollama ...
+  openai               OpenAI API ...
+  ...
+
+  Example generator config for Ollama:
+    - module_type: llama_index_llm
+      llm: ollama
+      model: gemma4:e2b
+
+============================================================
+  Step 8: Sample Configuration YAML
+============================================================
+
+    vectordb:
+      - name: default
+        db_type: chroma
+        ...
     node_lines:
-      - node_line_name: retrieve_and_generate
-        nodes:
-          - node_type: retrieval
-            strategy:
-              metrics: [retrieval_f1, retrieval_recall]
-            ...
+    - node_line_name: retrieve_node_line
+      nodes:
+        - node_type: lexical_retrieval
+          ...
+        - node_type: passage_reranker
+          ...
+    - node_line_name: post_retrieve_node_line
+      nodes:
+        - node_type: prompt_maker
+          ...
+        - node_type: generator
+          ...
+            - module_type: llama_index_llm
+              llm: ollama
+              model: [gemma4:e2b]
 
 ============================================================
   Lesson Complete
@@ -302,7 +385,7 @@ All validations passed successfully.
 
 You now understand the AutoRAG project layout, data formats,
 and validation workflow. In the next module (L1-M2.1), you
-will create a real QA evaluation dataset from your own documents.
+will learn how to parse documents and create a corpus.
 ```
 
 ## Key Takeaways
@@ -311,9 +394,11 @@ will create a real QA evaluation dataset from your own documents.
 - The QA dataset contains queries with ground-truth retrieval document IDs and expected answers.
 - The corpus dataset contains documents with unique IDs, content text, and metadata (including `last_modified_datetime`, `prev_id`, `next_id`).
 - AutoRAG provides validation utilities (`cast_qa_dataset`, `cast_corpus_dataset`, `validate_qa_from_corpus_dataset`) to check data consistency before running evaluation.
-- The CLI provides commands for evaluation, dashboard visualization, API serving, config validation, and best-config extraction.
+- The config YAML requires a top-level `vectordb` section to configure the vector store for embeddings.
+- AutoRAG uses LlamaIndex for LLM access — generator config uses `llm: ollama` + `model: gemma4:e2b` (NOT LiteLLM format).
+- The CLI provides commands for evaluation, dashboard, API serving (`run_api`), web UI (`run_web`), validation, config extraction, and resuming interrupted runs (`restart_evaluate`).
 - The config YAML defines the search space of modules and parameters that AutoRAG will explore at each pipeline node.
 
 ## Next Steps
 
-In the next lesson (L1-M2.1), you will learn how to create a QA evaluation dataset for your own documents -- the most critical step in the AutoRAG workflow, because evaluation data quality directly determines optimization quality.
+In the next lesson (L1-M2.1), you will learn how to parse documents and create a corpus — the foundation for all AutoRAG evaluations.

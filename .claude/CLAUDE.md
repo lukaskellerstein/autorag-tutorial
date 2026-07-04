@@ -5,8 +5,8 @@
 This is a two-level tutorial for AutoRAG — the open-source framework that applies AutoML-style automation to RAG pipeline optimization. You provide evaluation data, AutoRAG explores combinations of chunking strategies, embedding models, retrievers, rerankers, and generators, then identifies the best configuration.
 
 The tutorial is structured in two progressive levels:
-- **Level 1 — Essentials**: Understand AutoRAG, create evaluation data, run experiments, find the optimal RAG pipeline (~4.5-5.5 hours).
-- **Level 2 — Practitioner**: Advanced retrieval strategies, custom modules, integration with OpenShift AI (~3.5-4 hours).
+- **Level 1 — Essentials**: Understand AutoRAG, create evaluation data, run experiments, find the optimal RAG pipeline (~5-6 hours).
+- **Level 2 — Practitioner**: Intermediate pipeline nodes, advanced retrieval strategies, custom modules, integration with OpenShift AI (~4.25-5 hours).
 
 The full syllabus lives in `syllabus.md` — always consult it for module structure, lesson topics, deliverables, and time estimates before creating or modifying any lesson.
 
@@ -16,9 +16,9 @@ The full syllabus lives in `syllabus.md` — always consult it for module struct
 - **Python**: 3.10+
 - **Package manager**: `uv` (every lesson is a standalone `uv` project)
 - **LLM**: Ollama (primary, local dev) or vLLM
-- **Model**: `ollama/gemma4:e2b` (default for generation)
+- **Model**: `gemma4:e2b` via Ollama (default for generation)
 - **Embedding models**: sentence-transformers, BGE, nomic-embed-text, OpenAI, any HuggingFace model
-- **Vector DBs**: FAISS, Chroma, Qdrant (AutoRAG supports many)
+- **Vector DBs**: Chroma, Milvus, Weaviate, Pinecone, Couchbase, Qdrant (configured via YAML `vectordb:` section)
 - **Data format**: Parquet (QA datasets and corpus)
 
 ## Project Layout
@@ -35,17 +35,18 @@ tutorial/
       1_what_is_autorag/
       2_installing_project_setup/
     M2_evaluation_data/
-      1_creating_qa_datasets/
-      2_preparing_corpus/
+      1_parsing_corpus_creation/
+      2_creating_qa_datasets/
     M3_running_experiments/
       1_configuration_yaml/
       2_running_monitoring/
       3_analyzing_deploying/
   level_2/                          # Level 2: Practitioner
     M1_advanced_optimization/
-      1_advanced_retrieval/
-      2_embedding_comparison/
-      3_custom_metrics/
+      1_intermediate_pipeline_nodes/
+      2_advanced_retrieval/
+      3_embedding_comparison/
+      4_custom_metrics/
     M2_integration_production/
       1_custom_modules/
       2_autorag_to_openshift/
@@ -94,7 +95,9 @@ uv run python main.py
 - `uv run python main.py` — run the lesson code
 - `autorag evaluate --config config.yaml --qa qa.parquet --corpus corpus.parquet` — run evaluation
 - `autorag dashboard --trial_dir results/` — launch results dashboard
-- `autorag deploy --trial_dir results/` — deploy optimal pipeline as FastAPI server
+- `autorag run_api --trial_dir results/` — deploy optimal pipeline as FastAPI server
+- `autorag run_web --trial_path results/0` — launch Gradio web interface
+- `autorag extract_best_config --trial_path results/0` — extract optimal configuration YAML
 
 ## Rules
 

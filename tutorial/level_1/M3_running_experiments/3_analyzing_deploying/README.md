@@ -1,11 +1,11 @@
 # L1-M3.3 -- Analyzing Results and Deploying the Optimal Pipeline
 
 **Level:** Essentials
-**Duration:** 30 min
+**Duration:** 45 min
 
 ## Overview
 
-After running an AutoRAG evaluation trial, you need to understand the results and put the winning pipeline into action. This lesson teaches you how to read trial summaries, extract the optimal configuration, query the pipeline programmatically with Runner, and deploy it as a FastAPI server with ApiRunner. You will also learn how to interpret each evaluation metric so you can judge whether your pipeline is performing well.
+After running an AutoRAG evaluation trial, you need to understand the results and put the winning pipeline into action. This lesson teaches you how to read trial summaries, extract the optimal configuration, query the pipeline programmatically with Runner, interpret all evaluation metrics (including pass module results), and deploy using three options: FastAPI server, Gradio web interface, and Streamlit dashboard.
 
 ## Prerequisites
 
@@ -21,45 +21,91 @@ When AutoRAG completes an evaluation trial, it writes results into a numbered tr
 
 ### Extracting the Optimal Configuration
 
-AutoRAG provides `extract_best_config`, a utility that reads the trial results and produces a standalone YAML file containing only the winning module for each node. This extracted configuration is a deployable artifact -- you can version it, share it with teammates, or use it to recreate the optimal pipeline without rerunning the full evaluation. The output YAML has the same structure as the input config but with all non-winning alternatives removed.
+AutoRAG provides `extract_best_config`, a utility that reads the trial results and produces a standalone YAML file containing only the winning module for each node. This extracted configuration is a deployable artifact -- you can version it, share it with teammates, or use it to recreate the optimal pipeline without rerunning the full evaluation.
 
 ### Runner: Programmatic Querying
 
-The `Runner` class loads the optimal pipeline from a trial folder and lets you send queries to it from Python code. Under the hood, Runner reconstructs the retrieval, prompt-making, and generation stages using the best modules and parameters found during evaluation. You call `runner.run(query)` and get back the generated answer. This is useful for batch processing, integration testing, or embedding the pipeline into a larger application.
-
-### ApiRunner: Deploying as a FastAPI Server
-
-For production use, AutoRAG provides `ApiRunner`, which wraps the optimal pipeline in a FastAPI server. Once started, the server exposes REST endpoints:
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/run` | POST | Full pipeline: retrieve context and generate an answer |
-| `/v1/retrieve` | POST | Retrieval only: return relevant passages without generation |
-| `/v1/stream` | POST | Streaming generation: returns tokens as they are produced |
-| `/version` | GET | Returns the API version |
-
-This lets any HTTP client -- a web frontend, a chatbot, another microservice -- query your optimized RAG pipeline over the network.
+The `Runner` class loads the optimal pipeline from a trial folder and lets you send queries to it from Python code. Under the hood, Runner reconstructs the retrieval, prompt-making, and generation stages using the best modules and parameters found during evaluation. You call `runner.run(query)` and get back the generated answer.
 
 ### Metric Interpretation
 
 Understanding what each metric measures helps you decide whether your pipeline is good enough or needs further tuning:
 
-- **retrieval_f1** -- Harmonic mean of precision and recall for retrieved documents. Balances finding all relevant documents against avoiding irrelevant ones.
-- **retrieval_recall** -- Fraction of relevant documents that were successfully retrieved. High recall means you are not missing important context.
-- **retrieval_precision** -- Fraction of retrieved documents that are actually relevant. High precision means you are not flooding the prompt with noise.
-- **bleu** -- Measures n-gram overlap between the generated answer and the reference answer. Scores above 0.3 are generally good for open-ended generation.
-- **rouge** -- Recall-oriented n-gram overlap (ROUGE-L uses longest common subsequence). Scores above 0.4 suggest good coverage of the reference content.
-- **meteor** -- Alignment-based metric that accounts for synonyms and stemming, giving a more flexible measure of answer quality.
+**Retrieval Metrics** (require retrieval_gt in QA dataset):
+- **retrieval_f1** -- Harmonic mean of precision and recall for retrieved documents.
+- **retrieval_recall** -- Fraction of relevant documents that were successfully retrieved.
+- **retrieval_precision** -- Fraction of retrieved documents that are actually relevant.
+- **retrieval_ndcg** -- Normalized discounted cumulative gain, rewarding relevant docs ranked higher.
+- **retrieval_mrr** -- Mean reciprocal rank, measuring the position of the first relevant result.
+- **retrieval_map** -- Mean average precision across all recall levels.
+
+**Generation Metrics** (require generation_gt in QA dataset):
+- **bleu** -- N-gram overlap between generated and reference answer. Scores above 0.3 are good for open-ended generation.
+- **rouge** -- Recall-oriented n-gram overlap (ROUGE-L). Scores above 0.4 suggest good coverage.
+- **meteor** -- Alignment-based metric accounting for synonyms and stemming.
+- **sem_score** -- Cosine similarity of sentence embeddings (semantic similarity).
+- **bert_score** -- Token-level semantic similarity using BERT embeddings.
+- **faithfulness** -- Measures whether the answer is supported by the retrieved context.
+- **g_eval** -- LLM-as-judge evaluation scoring coherence, consistency, fluency, and relevance (1-5 scale, above 3.5 is good).
+
+**Passage Compressor Metrics:**
+- **retrieval_token_f1** -- Token-level F1 between compressed and original passages.
+- **retrieval_token_recall** -- Token-level recall of compressed passages.
+- **retrieval_token_precision** -- Token-level precision of compressed passages.
+
+**RAGAS Metrics:**
+- **context_precision** -- Relevance of retrieved context. Does not require retrieval ground truth, making it useful when ground truth is unavailable.
+
+### Understanding Pass Module Results
+
+When a pass_* module wins at a node, it means skipping that processing step produces better results on your data. For example:
+
+- **pass_reranker wins**: The initial retrieval ordering is already good enough. Reranking introduces errors or does not improve quality.
+- **pass_compressor wins**: Full passage text produces better generation. Compression loses important details.
+- **pass_passage_filter wins**: All retrieved passages are relevant enough. Filtering removes useful context.
+
+Pass module wins simplify your production pipeline -- fewer components means less latency, lower cost, and easier maintenance.
+
+### Deployment Options
+
+AutoRAG provides three deployment methods:
+
+| Option | Command | Purpose |
+|---|---|---|
+| **FastAPI Server** | `autorag run_api` | Production REST API |
+| **Gradio Web Interface** | `autorag run_web` | Interactive testing UI |
+| **Streamlit Dashboard** | `autorag dashboard` | Results visualization |
+
+#### FastAPI Server (`autorag run_api`)
+
+Wraps the optimal pipeline in a production-ready REST API:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/v1/run` | POST | Full pipeline: retrieve context and generate an answer |
+| `/v1/retrieve` | POST | Retrieval only: return relevant passages without generation |
+| `/v1/stream` | POST | Streaming generation: returns tokens via SSE |
+| `/version` | GET | Returns the API version |
+
+Supports NGrok tunnels for public access without port forwarding.
+
+#### Gradio Web Interface (`autorag run_web`)
+
+Provides an interactive chat-like UI for testing the pipeline. Supports shareable links for team collaboration. Ideal for demos and user testing before moving to production.
+
+#### Streamlit Dashboard (`autorag dashboard`)
+
+Visualizes evaluation results -- per-node module comparisons, metric distributions, and best pipeline visualization. This is for analyzing results, not for serving queries.
 
 ## Step-by-Step
 
 ### Step 1: Check Ollama
 
-The script verifies that Ollama is running and that the `gemma4:e2b` model is available. If Ollama is not reachable, the script exits with instructions to start it.
+The script verifies that Ollama is running and that the `gemma4:e2b` model is available.
 
 ### Step 2: Prepare Data and Run Trial
 
-If no trial results exist yet, the script generates the same 10-document corpus and 20 QA pairs used in L1-M3.2, then runs a full evaluation trial using `config.yaml`. This makes the lesson self-contained -- you do not need to have completed M3.2 first, though having prior results will skip this step.
+If no trial results exist yet, the script generates a 10-document corpus and 20 QA pairs, then runs a full evaluation trial.
 
 ```python
 from autorag.evaluator import Evaluator
@@ -74,7 +120,7 @@ evaluator.start_trial("config.yaml")
 
 ### Step 3: Analyze Results
 
-The script loads `summary.csv` from the trial directory and prints the best module and metric scores for each pipeline node. This gives you a quick overview of which configurations won.
+The script loads `summary.csv` from the trial directory and prints the best module and metric scores for each pipeline node.
 
 ```python
 summary_df = pd.read_csv(os.path.join(trial_path, "summary.csv"))
@@ -84,7 +130,7 @@ for _, row in summary_df.iterrows():
 
 ### Step 4: Extract Optimal Configuration
 
-Using `extract_best_config`, the script pulls out the winning configuration and saves it as `best_config.yaml`. The extracted YAML is printed to the console so you can inspect it.
+Using `extract_best_config`, the script pulls out the winning configuration and saves it as `best_config.yaml`.
 
 ```python
 from autorag.deploy import extract_best_config
@@ -97,23 +143,34 @@ config = extract_best_config(
 
 ### Step 5: Run Queries with Runner
 
-The script creates a `Runner` from the trial folder and sends three test queries through the optimal pipeline. Each query goes through retrieval, prompt construction, and generation, producing a final answer.
+The script creates a `Runner` from the trial folder and sends three test queries through the optimal pipeline.
 
 ```python
 from autorag.deploy import Runner
 
 runner = Runner.from_trial_folder(trial_path)
 result = runner.run("What are Python decorators?")
-print(result)
 ```
 
-### Step 6: API Deployment (Explanation)
+### Step 6: Metric Interpretation Guide
 
-The script explains how to deploy the pipeline as a FastAPI server using `ApiRunner`. It prints the code you would use and lists the available endpoints. The server is not actually started in this lesson to keep things simple.
+A reference table is printed explaining all 17 metrics, their ranges, and what constitutes a good score.
 
-### Step 7: Metric Interpretation Guide
+### Step 7: Pass Module Results
 
-A reference table is printed explaining each metric, its range, and what constitutes a good score. This helps you interpret the numbers from Step 3 and decide whether to iterate further.
+Explains how to interpret pass module wins and their implications for pipeline simplification.
+
+### Step 8: FastAPI Deployment
+
+Shows how to deploy using `autorag run_api` or the `ApiRunner` Python class. Lists all REST endpoints and mentions NGrok tunnel support.
+
+### Step 9: Gradio Web Interface
+
+Shows how to deploy using `autorag run_web` or the `GradioRunner` Python class for interactive testing.
+
+### Step 10: Streamlit Dashboard
+
+Shows how to visualize results using `autorag dashboard` for detailed metric analysis.
 
 ## Running the Lesson
 
@@ -161,15 +218,7 @@ Pipeline Optimization Results
   Metrics:
     bleu: 0.2145
     rouge: 0.4532
-
-  Node: generator
-  Best module: llama_index_llm
-  Metrics:
-    bleu: 0.2145
-    rouge: 0.4532
-
-Full summary table:
-...
+  ...
 
 ============================================================
   Step 4: Extract Optimal Configuration
@@ -177,12 +226,7 @@ Full summary table:
 
 Extracted optimal configuration:
   Saved to: best_config.yaml
-
-node_lines:
-- node_line_name: retrieve_node_line
-  nodes:
-  - node_type: lexical_retrieval
-    ...
+...
 
 ============================================================
   Step 5: Run Queries with Runner
@@ -201,33 +245,78 @@ Q: What is a virtual environment?
 A: A virtual environment creates an isolated space for project ...
 
 ============================================================
-  Step 6: API Deployment (Explanation)
+  Step 6: Metric Interpretation Guide
+============================================================
+
+  Metric                       Range    Better     Description
+  ---------------------------- -------- ---------- ------------------------------------------------
+  retrieval_f1                 0-1      higher     Harmonic mean of precision and recall ...
+  retrieval_recall             0-1      higher     Fraction of relevant documents ...
+  ...
+  context_precision            0-1      higher     RAGAS: context relevance (no ground truth needed)
+
+  Total: 17 metrics available
+
+============================================================
+  Step 7: Pass Module Results
+============================================================
+
+When a pass_* module wins at a node, it means skipping that
+processing step produces better results on your data.
+
+  If pass_query_expansion wins:
+    Your queries are already clear and specific.
+  ...
+
+============================================================
+  Step 8: FastAPI Deployment
 ============================================================
 
 AutoRAG can deploy the optimal pipeline as a FastAPI server.
+
+CLI command:
+  autorag run_api --trial_dir ./results/0 --host 0.0.0.0 --port 8000
+
+API Endpoints:
+  POST /v1/run              Full pipeline (retrieve + generate)
+  POST /v1/retrieve         Retrieval only (no generation)
+  POST /v1/stream           Streaming generation via SSE
+  GET /version              API version
+
+============================================================
+  Step 9: Gradio Web Interface
+============================================================
+
+AutoRAG provides a Gradio web interface for interactive testing.
+
+CLI command:
+  autorag run_web --trial_dir ./results/0
 ...
 
 ============================================================
-  Step 7: Metric Interpretation Guide
+  Step 10: Streamlit Dashboard
 ============================================================
 
-  Metric                    Range    Better     Description
-  ------------------------- -------- ---------- ---------------------------------------------
-  retrieval_f1              0-1      higher     Harmonic mean of precision and recall ...
-  retrieval_recall          0-1      higher     Fraction of relevant documents ...
-  ...
+AutoRAG provides a Streamlit dashboard for visualizing trial results.
+
+CLI command:
+  autorag dashboard --trial_dir ./results/0
+...
 
 ============================================================
   Done
 ============================================================
 
-You have analyzed AutoRAG results and deployed the optimal pipeline.
+You have analyzed AutoRAG results and explored deployment options.
 You now know how to:
   - Read trial summaries to identify the best configuration
   - Extract the optimal config as a reusable YAML file
   - Run queries through the optimal pipeline using Runner
-  - Deploy the pipeline as a FastAPI server using ApiRunner
-  - Interpret evaluation metrics to assess quality
+  - Interpret evaluation metrics across all categories
+  - Understand pass module results and their implications
+  - Deploy via FastAPI (autorag run_api) for production APIs
+  - Deploy via Gradio (autorag run_web) for interactive testing
+  - Visualize results via Streamlit (autorag dashboard)
 
 This completes Level 1, Module 3: Running Experiments.
 ```
@@ -236,14 +325,15 @@ Note: Exact metric values and generated answers will vary depending on model out
 
 ## Key Takeaways
 
-- **summary.csv** is the primary output of an AutoRAG trial -- it tells you which module won at each pipeline stage and the metric scores that determined the winner.
-- **extract_best_config** produces a standalone YAML with only the winning modules, ready for deployment or version control.
-- **Runner** lets you query the optimal pipeline programmatically from Python, useful for batch processing or integration into larger applications.
-- **ApiRunner** wraps the pipeline in a FastAPI server with REST endpoints, making it accessible to any HTTP client.
-- Understanding metric ranges and thresholds (retrieval recall > 0.7, BLEU > 0.3, ROUGE > 0.4) helps you judge pipeline quality and decide when to iterate.
+- **summary.csv** is the primary output of an AutoRAG trial -- it tells you which module won at each pipeline stage.
+- **extract_best_config** produces a standalone YAML with only the winning modules, ready for deployment.
+- **Runner** lets you query the optimal pipeline programmatically from Python.
+- **17 metrics** are available: 6 retrieval, 7 generation, 3 compressor, and 1 RAGAS metric.
+- **Pass module wins** indicate that skipping a node is optimal -- simplifying your production pipeline.
+- **Three deployment options**: FastAPI server (`autorag run_api`) for production APIs, Gradio (`autorag run_web`) for interactive testing, and Streamlit dashboard (`autorag dashboard`) for results visualization.
 
 ## Next Steps
 
 This completes Level 1, Module 3: Running Experiments. You have learned how to prepare data, configure and run evaluations, and analyze and deploy the results.
 
-In Level 2, you will explore advanced optimization strategies -- comparing more retrieval and generation modules side by side, tuning hyperparameters systematically, and building production-grade pipelines with monitoring and error handling.
+In Level 2, you will explore advanced optimization strategies -- intermediate pipeline nodes, hybrid retrieval, embedding model comparisons, custom metrics, and integration with OpenShift AI.

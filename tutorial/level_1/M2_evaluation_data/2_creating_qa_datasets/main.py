@@ -1,22 +1,20 @@
 """
-L2-M1.2 — Embedding Model Comparison
+L1-M2.2 — Creating QA Evaluation Datasets
 
-This lesson compares different embedding models using AutoRAG to
-systematically evaluate how embedding choice affects retrieval quality.
-We test BAAI/bge-small-en-v1.5 (384 dimensions) against
-all-mpnet-base-v2 (768 dimensions) on the same Python-concepts corpus
-and analyze the tradeoffs between model size, dimensionality, and quality.
+This lesson demonstrates how to create high-quality QA evaluation datasets
+for AutoRAG. We build a corpus of Python programming documents and craft
+QA pairs that link questions to their source documents, then explore
+AutoRAG's fluent API for generating QA pairs at scale.
 """
 
 import os
 from typing import Any
 
-import httpx
 import pandas as pd
 
 
-def create_sample_data() -> None:
-    """Generate a 10-document Python corpus and 20 QA pairs, saved as parquet."""
+def create_sample_corpus() -> pd.DataFrame:
+    """Create 10 documents about Python programming concepts."""
     documents: list[dict[str, Any]] = [
         {
             "doc_id": "doc_001",
@@ -47,7 +45,7 @@ def create_sample_data() -> None:
                 "documentation accessible via the help() function. Functions help organize code, "
                 "reduce repetition, and improve readability."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-16T11:00:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_003",
@@ -63,7 +61,7 @@ def create_sample_data() -> None:
                 "variables unique to each object, and special dunder methods like __str__ and "
                 "__repr__ for customizing object behavior."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-17T09:30:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_004",
@@ -80,7 +78,7 @@ def create_sample_data() -> None:
                 "creating wrapper functions. Decorators are widely used for logging, "
                 "authentication, caching, and input validation."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-18T14:00:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_005",
@@ -96,7 +94,7 @@ def create_sample_data() -> None:
                 "protocol, supporting next() calls and for-loop iteration. The send() method "
                 "allows sending values back into a generator, enabling coroutine-like behavior."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-19T08:45:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_006",
@@ -113,7 +111,7 @@ def create_sample_data() -> None:
                 "refactored into regular loops or helper functions when they span multiple "
                 "conditions or transformations."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-20T13:15:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_007",
@@ -130,7 +128,7 @@ def create_sample_data() -> None:
                 "when a condition is False. Context managers (with statement) provide a clean "
                 "pattern for resource management and error handling."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-21T10:30:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_008",
@@ -146,7 +144,7 @@ def create_sample_data() -> None:
                 "within the same package. The standard library provides hundreds of modules for "
                 "file I/O, networking, math, data processing, and more."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-22T15:00:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_009",
@@ -162,7 +160,7 @@ def create_sample_data() -> None:
                 "freeze. Virtual environments are essential for maintaining clean, reproducible "
                 "development setups and avoiding the problems of global package installation."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-23T11:45:00", "prev_id": None, "next_id": None},
         },
         {
             "doc_id": "doc_010",
@@ -179,11 +177,23 @@ def create_sample_data() -> None:
                 "are not enforced at runtime by default but can be checked using libraries like "
                 "pydantic and beartype."
             ),
-            "metadata": {"last_modified_datetime": "2024-01-15T10:00:00", "prev_id": None, "next_id": None},
+            "metadata": {"last_modified_datetime": "2024-01-24T09:00:00", "prev_id": None, "next_id": None},
         },
     ]
 
+    corpus_df = pd.DataFrame(documents)
+    print(f"Created corpus with {len(corpus_df)} documents")
+    print(f"Columns: {list(corpus_df.columns)}")
+    print(f"\nSample document (doc_001):")
+    print(f"  Content preview: {corpus_df.iloc[0]['contents'][:80]}...")
+    print(f"  Metadata: {corpus_df.iloc[0]['metadata']}")
+    return corpus_df
+
+
+def create_qa_dataset(corpus_df: pd.DataFrame) -> pd.DataFrame:
+    """Create 20 QA pairs — 2 per document (one factual, one conceptual)."""
     qa_pairs: list[dict[str, Any]] = [
+        # doc_001 — Variables
         {
             "qid": "q_001",
             "query": "What naming rules must Python variables follow?",
@@ -202,6 +212,7 @@ def create_sample_data() -> None:
                 "a value of a different type at any time without explicit type declarations."
             ],
         },
+        # doc_002 — Functions
         {
             "qid": "q_003",
             "query": "What are *args and **kwargs used for in Python functions?",
@@ -220,6 +231,7 @@ def create_sample_data() -> None:
                 "to other functions, returned from functions, and assigned to variables."
             ],
         },
+        # doc_003 — Classes
         {
             "qid": "q_005",
             "query": "What is the purpose of the __init__ method in a Python class?",
@@ -239,6 +251,7 @@ def create_sample_data() -> None:
                 "a parent class."
             ],
         },
+        # doc_004 — Decorators
         {
             "qid": "q_007",
             "query": "What are some common built-in decorators in Python?",
@@ -257,6 +270,7 @@ def create_sample_data() -> None:
                 "original function to add behavior like logging or caching."
             ],
         },
+        # doc_005 — Generators
         {
             "qid": "q_009",
             "query": "What keyword distinguishes a generator function from a regular function?",
@@ -276,6 +290,7 @@ def create_sample_data() -> None:
                 "sequence in memory."
             ],
         },
+        # doc_006 — List Comprehensions
         {
             "qid": "q_011",
             "query": "What is the basic syntax of a Python list comprehension?",
@@ -295,6 +310,7 @@ def create_sample_data() -> None:
                 "functions to maintain readability."
             ],
         },
+        # doc_007 — Error Handling
         {
             "qid": "q_013",
             "query": "What are the four clauses of a try-except block in Python?",
@@ -315,6 +331,7 @@ def create_sample_data() -> None:
                 "released even if exceptions occur."
             ],
         },
+        # doc_008 — Modules and Packages
         {
             "qid": "q_015",
             "query": "What is the difference between a module and a package in Python?",
@@ -333,6 +350,7 @@ def create_sample_data() -> None:
                 "installed packages, and standard library paths."
             ],
         },
+        # doc_009 — Virtual Environments
         {
             "qid": "q_017",
             "query": "What Python module is used to create virtual environments?",
@@ -352,6 +370,7 @@ def create_sample_data() -> None:
                 "package versions and maintaining reproducible development setups."
             ],
         },
+        # doc_010 — Type Hints
         {
             "qid": "q_019",
             "query": "What syntax does Python use for type hints on variables and return types?",
@@ -373,203 +392,195 @@ def create_sample_data() -> None:
         },
     ]
 
+    qa_df = pd.DataFrame(qa_pairs)
+    print(f"Created {len(qa_df)} QA pairs")
+    print(f"Columns: {list(qa_df.columns)}")
+    print(f"\nSample QA pair (q_001):")
+    print(f"  Query: {qa_df.iloc[0]['query']}")
+    print(f"  Retrieval GT: {qa_df.iloc[0]['retrieval_gt']}")
+    print(f"  Generation GT: {qa_df.iloc[0]['generation_gt'][0][:80]}...")
+    return qa_df
+
+
+def review_qa_quality(qa_df: pd.DataFrame, corpus_df: pd.DataFrame) -> None:
+    """Print quality statistics and validate the QA dataset."""
+    print(f"Total QA pairs: {len(qa_df)}")
+
+    # Average query length
+    word_counts = qa_df["query"].apply(lambda q: len(q.split()))
+    print(f"Average query length: {word_counts.mean():.1f} words")
+    print(f"  Min: {word_counts.min()} words, Max: {word_counts.max()} words")
+
+    # Unique documents referenced
+    all_doc_ids: set[str] = set()
+    for gt_list in qa_df["retrieval_gt"]:
+        for doc_ids in gt_list:
+            all_doc_ids.update(doc_ids)
+    print(f"Unique documents referenced: {len(all_doc_ids)} / {len(corpus_df)}")
+
+    # Check for duplicate queries
+    duplicates = qa_df["query"].duplicated().sum()
+    print(f"Duplicate queries: {duplicates}")
+    if duplicates == 0:
+        print("  OK — no duplicates found")
+    else:
+        print("  WARNING — duplicate queries detected!")
+
+    # Validate retrieval_gt doc_ids exist in corpus
+    corpus_doc_ids = set(corpus_df["doc_id"].tolist())
+    missing_refs: list[str] = []
+    for _, row in qa_df.iterrows():
+        for doc_ids in row["retrieval_gt"]:
+            for doc_id in doc_ids:
+                if doc_id not in corpus_doc_ids:
+                    missing_refs.append(doc_id)
+    if not missing_refs:
+        print("Retrieval GT validation: OK — all doc_ids exist in corpus")
+    else:
+        print(f"Retrieval GT validation: FAILED — missing doc_ids: {missing_refs}")
+
+    # Check for empty generation_gt
+    empty_gt = qa_df["generation_gt"].apply(
+        lambda gt: len(gt) == 0 or all(len(s.strip()) == 0 for s in gt)
+    ).sum()
+    if empty_gt == 0:
+        print("Generation GT validation: OK — no empty answers")
+    else:
+        print(f"Generation GT validation: WARNING — {empty_gt} empty answers found")
+
+
+def split_train_test(qa_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split QA dataset 80/20 into train and test sets."""
+    test_df = qa_df.sample(frac=0.2, random_state=42)
+    train_df = qa_df.drop(test_df.index)
+
+    print(f"Total QA pairs: {len(qa_df)}")
+    print(f"Train set: {len(train_df)} pairs ({len(train_df)/len(qa_df)*100:.0f}%)")
+    print(f"Test set:  {len(test_df)} pairs ({len(test_df)/len(qa_df)*100:.0f}%)")
+    print(f"\nTrain QIDs: {sorted(train_df['qid'].tolist())}")
+    print(f"Test QIDs:  {sorted(test_df['qid'].tolist())}")
+
+    return train_df, test_df
+
+
+def explain_llm_generation() -> None:
+    """Explain AutoRAG's fluent API for QA generation."""
+    print("AutoRAG provides a fluent API for generating QA pairs at scale.")
+    print("The pipeline chains sampling, query generation, filtering, and")
+    print("answer generation into a single expression.")
+    print()
+    print("--- Sampling Methods ---")
+    print("  random_single_hop(corpus_df, n=100)")
+    print("    -> randomly sample n passages for question generation")
+    print("  range_single_hop(corpus_df, idx_range)")
+    print("    -> sample a specific index range of passages")
+    print()
+    print("--- Query Generation Types ---")
+    print("  factoid_query_gen")
+    print("    -> factual questions with specific answers")
+    print("  concept_completion_query_gen")
+    print("    -> questions about concepts and definitions")
+    print("  two_hop_incremental")
+    print("    -> multi-hop questions requiring two passages")
+    print()
+    print("--- Query Evolving (increase difficulty) ---")
+    print("  reasoning_evolve_ragas")
+    print("    -> add reasoning steps to existing queries")
+    print("  conditional_evolve_ragas")
+    print("    -> add conditional constraints to queries")
+    print("  compress_ragas")
+    print("    -> compress queries while preserving meaning")
+    print()
+    print("--- Filtering (remove low-quality pairs) ---")
+    print("  dontknow_filter_rule_based")
+    print("    -> rule-based filter for unanswerable questions")
+    print("  dontknow_filter_openai / dontknow_filter_llama_index")
+    print("    -> LLM-based filter for unanswerable questions")
+    print("  passage_dependency_filter")
+    print("    -> filter questions that don't depend on the passage")
+    print()
+    print("--- Answer Generation ---")
+    print("  make_basic_gen_gt")
+    print("    -> generate detailed reference answers")
+    print("  make_concise_gen_gt")
+    print("    -> generate concise reference answers")
+    print()
+    print("--- Fluent API Example ---")
+    print("  from openai import AsyncOpenAI")
+    print("  client = AsyncOpenAI()")
+    print()
+    print("  corpus.sample(random_single_hop, n=100)")
+    print("      .batch_apply(factoid_query_gen, client=client)")
+    print("      .batch_apply(make_basic_gen_gt, client=client)")
+    print("      .batch_filter(dontknow_filter_openai, client=client)")
+    print('      .to_parquet("qa.parquet", "corpus.parquet")')
+    print()
+    print("This approach scales to large corpora and produces diverse,")
+    print("natural-sounding questions. For this tutorial, we created QA")
+    print("pairs manually to understand the data format requirements.")
+
+
+def save_data(
+    qa_df: pd.DataFrame,
+    corpus_df: pd.DataFrame,
+) -> None:
+    """Save QA and corpus datasets as parquet files."""
     os.makedirs("data", exist_ok=True)
 
-    corpus_df = pd.DataFrame(documents)
-    qa_df = pd.DataFrame(qa_pairs)
+    qa_path = os.path.join("data", "qa.parquet")
+    corpus_path = os.path.join("data", "corpus.parquet")
 
-    corpus_df.to_parquet("data/corpus.parquet", index=False)
-    qa_df.to_parquet("data/qa.parquet", index=False)
+    qa_df.to_parquet(qa_path, index=False)
+    corpus_df.to_parquet(corpus_path, index=False)
 
-    print(f"Created corpus with {len(corpus_df)} documents")
-    print(f"Created {len(qa_df)} QA pairs (2 per document)")
-    print(f"Saved to: data/corpus.parquet ({os.path.getsize('data/corpus.parquet'):,} bytes)")
-    print(f"Saved to: data/qa.parquet ({os.path.getsize('data/qa.parquet'):,} bytes)")
+    qa_size = os.path.getsize(qa_path)
+    corpus_size = os.path.getsize(corpus_path)
 
-
-def check_ollama() -> bool:
-    """Check if Ollama is running at localhost:11434."""
-    try:
-        response = httpx.get("http://localhost:11434/api/tags", timeout=5.0)
-        if response.status_code == 200:
-            models = response.json().get("models", [])
-            model_names = [m.get("name", "") for m in models]
-            print("Ollama is running.")
-            print(f"Available models: {model_names}")
-            return True
-        print(f"Ollama responded with status {response.status_code}")
-        return False
-    except httpx.ConnectError:
-        print("Ollama is NOT running at http://localhost:11434")
-        print("Start it with: ollama serve")
-        return False
-    except httpx.TimeoutException:
-        print("Ollama connection timed out.")
-        return False
-
-
-def explain_embedding_models() -> None:
-    """Print a comparison table of the two embedding models under test."""
-    print("Embedding models compared in this lesson:\n")
-    print(f"{'| Model':<25} {'| Dimensions':<13} {'| Size':<9} {'| Notes':<39}|")
-    print(f"|{'-' * 24}|{'-' * 12}|{'-' * 8}|{'-' * 38}|")
-    print(f"{'| BAAI/bge-small-en-v1.5':<25} {'| 384':<13} {'| ~130MB':<9} {'| Lightweight, good for English':<39}|")
-    print(f"{'| all-mpnet-base-v2':<25} {'| 768':<13} {'| ~420MB':<9} {'| Higher quality, larger dimensions':<39}|")
-    print()
-    print("Both models are from the sentence-transformers ecosystem and")
-    print("produce normalized embeddings suitable for cosine similarity search.")
-
-
-def explain_tradeoffs() -> None:
-    """Print analysis of embedding model tradeoffs."""
-    print("Key tradeoffs when choosing an embedding model:\n")
-
-    print("1. Dimensions (384 vs 768)")
-    print("   Higher dimensions capture more semantic nuance, allowing the")
-    print("   model to distinguish between subtly different meanings. However,")
-    print("   higher dimensions require more storage per vector and increase")
-    print("   the computational cost of similarity search.\n")
-
-    print("2. Model Size (~130MB vs ~420MB)")
-    print("   Larger models generally produce higher-quality embeddings because")
-    print("   they have more parameters to encode semantic relationships. The")
-    print("   tradeoff is slower indexing time and higher memory usage during")
-    print("   embedding generation.\n")
-
-    print("3. Language Coverage")
-    print("   bge-small-en-v1.5 is optimized for English text. For multilingual")
-    print("   corpora, consider models like paraphrase-multilingual-MiniLM-L12-v2")
-    print("   or multilingual-e5-large. English-only models tend to outperform")
-    print("   multilingual models on English benchmarks.\n")
-
-    print("4. Domain Specificity")
-    print("   General-purpose models work well for broad content. For specialized")
-    print("   domains (legal, medical, scientific), fine-tuned embeddings can")
-    print("   significantly improve retrieval quality. Consider fine-tuning on")
-    print("   your own data if general models underperform.")
-
-
-def run_evaluation() -> None:
-    """Run the AutoRAG evaluation comparing both embedding models."""
-    from autorag.evaluator import Evaluator
-
-    evaluator = Evaluator(
-        qa_data_path="data/qa.parquet",
-        corpus_data_path="data/corpus.parquet",
-        project_dir="./results",
-    )
-    evaluator.start_trial("config.yaml")
-    print("Evaluation complete. Results saved to ./results/")
-
-
-def compare_embeddings() -> None:
-    """Load evaluation results and compare embedding model performance."""
-    summary_path = "results/0/summary.csv"
-
-    if not os.path.exists(summary_path):
-        print(f"Results file not found: {summary_path}")
-        print("Run the evaluation first (Step 4) to generate results.")
-        print("\nShowing what to expect when results are available:")
-        print("  - summary.csv contains per-module retrieval metrics")
-        print("  - Compare retrieval_f1, retrieval_recall, retrieval_precision")
-        print("  - The module with higher scores used the better embedding model")
-        return
-
-    summary_df = pd.read_csv(summary_path)
-    print("Evaluation Results Summary")
-    print("-" * 50)
-    print(summary_df.to_string(index=False))
-
-    print("\n" + "-" * 50)
-    print("Embedding Model Comparison:")
-
-    retrieval_cols = [c for c in summary_df.columns if c.startswith("retrieval_")]
-    if retrieval_cols:
-        print(f"\nRetrieval metrics found: {retrieval_cols}")
-        for col in retrieval_cols:
-            best_idx = summary_df[col].idxmax()
-            best_val = summary_df[col].max()
-            print(f"  {col}: best = {best_val:.4f} (row {best_idx})")
-    else:
-        print("No retrieval metric columns found in summary.")
-
-
-def print_recommendations() -> None:
-    """Print practical recommendations for embedding model selection."""
-    print("Recommendations:\n")
-
-    print("For prototyping and development:")
-    print("  Use bge-small-en-v1.5 (384 dims, ~130MB)")
-    print("  - Fast to download and index")
-    print("  - Good enough to validate your RAG pipeline logic")
-    print("  - Low memory footprint for local development\n")
-
-    print("For production deployments:")
-    print("  Use all-mpnet-base-v2 (768 dims, ~420MB) or larger models")
-    print("  - Higher retrieval quality justifies the extra resources")
-    print("  - Consider all-MiniLM-L12-v2 as a middle ground (384 dims, better quality)\n")
-
-    print("For domain-specific applications:")
-    print("  Consider fine-tuned embedding models")
-    print("  - Medical: PubMedBERT-based embeddings")
-    print("  - Legal: legal-bert-based embeddings")
-    print("  - Use AutoRAG to verify fine-tuned models actually outperform general ones\n")
-
-    print("Cost considerations:")
-    print("  - 768-dim vectors use 2x the storage of 384-dim vectors")
-    print("  - Larger vector indices require more RAM for fast search")
-    print("  - For millions of documents, storage and compute costs scale linearly")
-    print("  - Always benchmark on YOUR data — the best model depends on your domain")
+    print(f"Saved QA dataset:     {qa_path} ({qa_size:,} bytes)")
+    print(f"Saved corpus dataset: {corpus_path} ({corpus_size:,} bytes)")
+    print(f"\nFiles can be loaded with:")
+    print(f"  qa_df = pd.read_parquet('{qa_path}')")
+    print(f"  corpus_df = pd.read_parquet('{corpus_path}')")
 
 
 def main() -> None:
-    """Run all steps of the embedding model comparison lesson."""
+    """Run all steps of the QA dataset creation lesson."""
     print("=" * 60)
-    print("L2-M1.2 — Embedding Model Comparison")
+    print("L1-M2.2 — Creating QA Evaluation Datasets")
     print("=" * 60)
 
     print("\n" + "=" * 60)
-    print("Step 1: Prepare evaluation data")
+    print("Step 1: Create sample corpus")
     print("=" * 60)
-    create_sample_data()
+    corpus_df = create_sample_corpus()
 
     print("\n" + "=" * 60)
-    print("Step 2: Check Ollama availability")
+    print("Step 2: Create QA evaluation dataset")
     print("=" * 60)
-    ollama_ok = check_ollama()
+    qa_df = create_qa_dataset(corpus_df)
 
     print("\n" + "=" * 60)
-    print("Step 3: Embedding models under comparison")
+    print("Step 3: Review QA quality")
     print("=" * 60)
-    explain_embedding_models()
+    review_qa_quality(qa_df, corpus_df)
 
     print("\n" + "=" * 60)
-    print("Step 4: Embedding model tradeoffs")
+    print("Step 4: Split into train/test sets")
     print("=" * 60)
-    explain_tradeoffs()
+    train_df, test_df = split_train_test(qa_df)
 
     print("\n" + "=" * 60)
-    print("Step 5: Run AutoRAG evaluation")
+    print("Step 5: AutoRAG Fluent QA Generation API (explanation)")
     print("=" * 60)
-    if ollama_ok:
-        run_evaluation()
-    else:
-        print("Skipping evaluation — Ollama is not running.")
-        print("Start Ollama and re-run this lesson to execute the evaluation.")
+    explain_llm_generation()
 
     print("\n" + "=" * 60)
-    print("Step 6: Compare embedding results")
+    print("Step 6: Save datasets to parquet")
     print("=" * 60)
-    compare_embeddings()
+    save_data(qa_df, corpus_df)
 
     print("\n" + "=" * 60)
-    print("Step 7: Recommendations")
-    print("=" * 60)
-    print_recommendations()
-
-    print("\n" + "=" * 60)
-    print("Done! Review the results to decide which embedding model")
-    print("works best for your use case.")
+    print("Done! Next: L1-M3.1 Configuration YAML")
     print("=" * 60)
 
 

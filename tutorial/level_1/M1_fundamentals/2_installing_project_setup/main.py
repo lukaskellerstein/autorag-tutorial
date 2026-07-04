@@ -154,56 +154,123 @@ def show_cli_commands() -> None:
         ("autorag run_api",
          "Deploy the best pipeline as a FastAPI server.\n"
          "    autorag run_api --trial_dir results/0 --host 0.0.0.0 --port 8000"),
+        ("autorag run_web",
+         "Launch a Gradio web UI for interactive testing.\n"
+         "    autorag run_web --trial_dir results/0"),
         ("autorag validate",
          "Validate a config YAML without running evaluation.\n"
          "    autorag validate --config config.yaml"),
         ("autorag extract_best_config",
          "Extract the optimal configuration from completed results.\n"
          "    autorag extract_best_config --trial_dir results/0"),
+        ("autorag restart_evaluate",
+         "Resume a previously interrupted evaluation run.\n"
+         "    autorag restart_evaluate --trial_dir results/0"),
     ]
     for cmd, desc in commands:
         print(f"  {cmd}\n    {desc}\n")
 
 
+def show_vectordb_config() -> None:
+    """Print the top-level vectordb YAML configuration."""
+    print_section("Step 6: Vector Database Configuration")
+    print("AutoRAG requires a top-level 'vectordb' section in the config YAML")
+    print("that defines where embeddings are stored. This is separate from the")
+    print("node_lines and applies to all retrieval modules that use vectors.\n")
+    print("""\
+    vectordb:
+      - name: default
+        db_type: chroma
+        client_type: persistent
+        path: ./chroma_db
+
+    Other supported vector databases:
+      - chroma       — Local or client/server (default for quick experiments)
+      - qdrant       — High-performance, supports filtering
+      - milvus       — Scalable, cloud-native
+      - weaviate     — GraphQL API, hybrid search built in
+      - pinecone     — Fully managed cloud service
+      - couchbase    — Multi-model database with vector search""")
+
+
+def show_llm_backends() -> None:
+    """Print the available LLM backends via LlamaIndex."""
+    print_section("Step 7: LLM Backends")
+    print("AutoRAG uses LlamaIndex for LLM access. The generator config")
+    print("specifies 'llm' (the backend) and 'model' (the model name).\n")
+    backends = [
+        ("ollama", "Local models via Ollama (default for this tutorial)"),
+        ("openai", "OpenAI API (GPT-4o, GPT-4, GPT-3.5)"),
+        ("openailike", "OpenAI-compatible APIs (e.g., local servers)"),
+        ("huggingfacellm", "HuggingFace Inference API or local models"),
+        ("bedrock", "AWS Bedrock (Claude, Titan, etc.)"),
+        ("vllm", "vLLM for high-throughput local serving"),
+    ]
+    for backend, desc in backends:
+        print(f"  {backend:20s} {desc}")
+    print()
+    print("Example generator config for Ollama:")
+    print("""\
+    - module_type: llama_index_llm
+      llm: ollama
+      model: gemma4:e2b""")
+
+
 def show_sample_config() -> None:
     """Print a sample AutoRAG configuration YAML."""
-    print_section("Step 6: Sample Configuration YAML")
+    print_section("Step 8: Sample Configuration YAML")
     print("The config.yaml defines which nodes, modules, and parameter")
     print("combinations AutoRAG will evaluate:\n")
     print("""\
+    vectordb:
+      - name: default
+        db_type: chroma
+        client_type: persistent
+        path: ./chroma_db
+
     node_lines:
-      - node_line_name: retrieve_and_generate
-        nodes:
-          - node_type: retrieval
-            strategy:
-              metrics: [retrieval_f1, retrieval_recall]
-            modules:
-              - module_type: bm25
-                top_k: [3, 5, 10]
-              - module_type: vectordb
-                embedding_model:
-                  - huggingface/BAAI/bge-small-en-v1.5
-                top_k: [3, 5, 10]
-              - module_type: hybrid_rrf
-                weight_range: (4, 80)
-                top_k: [3, 5, 10]
-          - node_type: passage_reranker
-            strategy:
-              metrics: [retrieval_f1, retrieval_recall]
-            modules:
-              - module_type: pass_reranker
-              - module_type: flashrank_reranker
-          - node_type: generator
-            strategy:
-              metrics: [generation_f1, rouge]
-            modules:
-              - module_type: llm
-                llm: ollama/gemma4:e2b
-                prompt: [default, detailed]""")
+    - node_line_name: retrieve_node_line
+      nodes:
+        - node_type: lexical_retrieval
+          strategy:
+            metrics: [retrieval_f1, retrieval_recall]
+          top_k: 3
+          modules:
+            - module_type: bm25
+        - node_type: passage_reranker
+          strategy:
+            metrics: [retrieval_f1, retrieval_recall]
+          top_k: 3
+          modules:
+            - module_type: pass_reranker
+            - module_type: flashrank_reranker
+    - node_line_name: post_retrieve_node_line
+      nodes:
+        - node_type: prompt_maker
+          strategy:
+            metrics: [bleu, rouge]
+            generator_modules:
+              - module_type: llama_index_llm
+                llm: ollama
+                model: gemma4:e2b
+          modules:
+            - module_type: fstring
+              prompt: "Answer the question.\\nQuestion: {query}\\nContext: {retrieved_contents}\\nAnswer:"
+        - node_type: generator
+          strategy:
+            metrics:
+              - metric_name: bleu
+              - metric_name: rouge
+          modules:
+            - module_type: llama_index_llm
+              llm: ollama
+              model: [gemma4:e2b]""")
     print("\nKey points:")
+    print("  - vectordb section configures the vector store for embeddings")
     print("  - node_lines group nodes into a sequential pipeline")
     print("  - Each node lists modules with parameter ranges to explore")
     print("  - strategy.metrics controls which metric drives optimization")
+    print("  - Generator uses llama_index_llm with llm + model (not LiteLLM format)")
     print("  - AutoRAG's greedy algorithm picks the best module at each node")
 
 
@@ -220,12 +287,14 @@ def main() -> None:
     corpus_df = create_corpus_dataframe()
     validate_datasets(qa_df, corpus_df)
     show_cli_commands()
+    show_vectordb_config()
+    show_llm_backends()
     show_sample_config()
 
     print(f"\n{'=' * 60}\n  Lesson Complete\n{'=' * 60}")
     print("\nYou now understand the AutoRAG project layout, data formats,")
     print("and validation workflow. In the next module (L1-M2.1), you")
-    print("will create a real QA evaluation dataset from your own documents.")
+    print("will learn how to parse documents and create a corpus.")
 
 
 if __name__ == "__main__":

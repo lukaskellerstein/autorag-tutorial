@@ -8,8 +8,8 @@ globs: ["tutorial/**"]
 
 The tutorial is organized in two progressive levels:
 
-- **`tutorial/level_1/`** — Essentials: understand AutoRAG, create evaluation data, run experiments (~4.5-5.5 hours)
-- **`tutorial/level_2/`** — Practitioner: advanced optimization, custom modules, OpenShift AI integration (~3.5-4 hours)
+- **`tutorial/level_1/`** — Essentials: understand AutoRAG, create evaluation data, run experiments (~5-6 hours)
+- **`tutorial/level_2/`** — Practitioner: advanced optimization, custom modules, OpenShift AI integration (~4.25-5 hours)
 
 Always consult `syllabus.md` for the full module/lesson breakdown.
 
@@ -36,17 +36,18 @@ tutorial/
       1_what_is_autorag/
       2_installing_project_setup/
     M2_evaluation_data/
-      1_creating_qa_datasets/
-      2_preparing_corpus/
+      1_parsing_corpus_creation/
+      2_creating_qa_datasets/
     M3_running_experiments/
       1_configuration_yaml/
       2_running_monitoring/
       3_analyzing_deploying/
   level_2/
     M1_advanced_optimization/
-      1_advanced_retrieval/
-      2_embedding_comparison/
-      3_custom_metrics/
+      1_intermediate_pipeline_nodes/
+      2_advanced_retrieval/
+      3_embedding_comparison/
+      4_custom_metrics/
     M2_integration_production/
       1_custom_modules/
       2_autorag_to_openshift/

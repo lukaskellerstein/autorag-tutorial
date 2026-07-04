@@ -1,5 +1,5 @@
 """
-L2-M1.3 — Custom Evaluation Metrics
+L2-M1.4 — Custom Evaluation Metrics
 
 Learn how AutoRAG's metric system works and create your own custom
 evaluation metrics using the @autorag_metric decorator.

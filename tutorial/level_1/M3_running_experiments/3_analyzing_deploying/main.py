@@ -190,10 +190,39 @@ def run_with_runner(trial_path: str) -> None:
         print()
 
 
+def explain_pass_module_results() -> None:
+    """Explain how to interpret when a pass module wins."""
+    print("When a pass_* module wins at a node, it means skipping that")
+    print("processing step produces better results on your data.\n")
+
+    examples = [
+        ("pass_query_expansion wins", "Your queries are already clear and specific.\n"
+         "    Query expansion adds noise rather than helping retrieval."),
+        ("pass_reranker wins", "The initial retrieval ordering is already good.\n"
+         "    Reranking introduces errors or does not improve ranking quality."),
+        ("pass_passage_filter wins", "All retrieved passages are relevant enough.\n"
+         "    Filtering removes passages that actually contain useful context."),
+        ("pass_compressor wins", "Full passage text produces better generation.\n"
+         "    Compression loses important details needed for the answer."),
+        ("pass_passage_augmenter wins", "Retrieved chunks are self-contained.\n"
+         "    Adding surrounding context introduces irrelevant information."),
+    ]
+
+    for scenario, explanation in examples:
+        print(f"  If {scenario}:")
+        print(f"    {explanation}")
+        print()
+
+    print("Pass module wins simplify your production pipeline — fewer")
+    print("components means less latency, lower cost, and easier maintenance.")
+
+
 def explain_api_deployment() -> None:
-    """Explain how to deploy the optimal pipeline as an API server."""
+    """Explain how to deploy the optimal pipeline as a FastAPI server."""
     print("AutoRAG can deploy the optimal pipeline as a FastAPI server.\n")
-    print("Code to start the API server:")
+    print("CLI command:")
+    print("  autorag run_api --trial_dir ./results/0 --host 0.0.0.0 --port 8000\n")
+    print("Or via Python:")
     print("-" * 60)
     print("""
     from autorag.deploy import ApiRunner
@@ -203,37 +232,93 @@ def explain_api_deployment() -> None:
 """)
     print("API Endpoints:")
     print(f"  {'Endpoint':<25s} {'Description'}")
-    print(f"  {'-' * 25} {'-' * 30}")
+    print(f"  {'-' * 25} {'-' * 40}")
     print(f"  {'POST /v1/run':<25s} Full pipeline (retrieve + generate)")
-    print(f"  {'POST /v1/retrieve':<25s} Retrieval only")
-    print(f"  {'POST /v1/stream':<25s} Streaming generation")
+    print(f"  {'POST /v1/retrieve':<25s} Retrieval only (no generation)")
+    print(f"  {'POST /v1/stream':<25s} Streaming generation via SSE")
     print(f"  {'GET /version':<25s} API version")
+    print()
+    print("NGrok tunnel support:")
+    print("  AutoRAG supports NGrok tunnels for public access without port")
+    print("  forwarding. Pass --ngrok_auth_token to enable a public URL.")
     print()
     print("This lesson does NOT start the server to keep things simple.")
     print("Try it yourself after completing this lesson.")
 
 
+def explain_gradio_deployment() -> None:
+    """Explain the Gradio web interface deployment option."""
+    print("AutoRAG provides a Gradio web interface for interactive testing.\n")
+    print("CLI command:")
+    print("  autorag run_web --trial_dir ./results/0\n")
+    print("Or via Python:")
+    print("-" * 60)
+    print("""
+    from autorag.deploy import GradioRunner
+
+    runner = GradioRunner.from_trial_folder("./results/0")
+    runner.run_web()
+""")
+    print("Features:")
+    print("  - Interactive chat-like UI for testing queries")
+    print("  - Shows retrieved passages alongside generated answers")
+    print("  - Shareable links for team collaboration")
+    print("  - No code needed — just point at the trial directory")
+    print()
+    print("The Gradio interface is ideal for quick demos and user testing")
+    print("before moving to the production FastAPI deployment.")
+
+
+def explain_dashboard() -> None:
+    """Explain the Streamlit dashboard for visualizing results."""
+    print("AutoRAG provides a Streamlit dashboard for visualizing trial results.\n")
+    print("CLI command:")
+    print("  autorag dashboard --trial_dir ./results/0\n")
+    print("The dashboard shows:")
+    print("  - Per-node comparison of module performance")
+    print("  - Metric distributions across QA pairs")
+    print("  - Best pipeline visualization")
+    print("  - Detailed score breakdowns per query")
+    print()
+    print("Note: The dashboard visualizes evaluation results. It is separate")
+    print("from the FastAPI server and Gradio interface, which serve queries.")
+
+
 def interpret_metrics() -> None:
     """Print a reference table explaining each metric."""
     metrics = [
-        ("retrieval_f1", "0-1", "higher", "Harmonic mean of precision and recall for retrieved documents"),
+        ("retrieval_f1", "0-1", "higher", "Harmonic mean of precision and recall for retrieved docs"),
         ("retrieval_recall", "0-1", "higher", "Fraction of relevant documents successfully retrieved"),
-        ("retrieval_precision", "0-1", "higher", "Fraction of retrieved documents that are actually relevant"),
+        ("retrieval_precision", "0-1", "higher", "Fraction of retrieved documents that are relevant"),
+        ("retrieval_ndcg", "0-1", "higher", "Rewards relevant documents ranked higher"),
+        ("retrieval_mrr", "0-1", "higher", "Position of the first relevant result"),
+        ("retrieval_map", "0-1", "higher", "Average precision across all recall levels"),
         ("bleu", "0-1", "higher", "N-gram overlap between generated and reference answer"),
         ("rouge", "0-1", "higher", "Recall-oriented n-gram overlap (ROUGE-L)"),
-        ("meteor", "0-1", "higher", "Alignment-based metric accounting for synonyms and stemming"),
+        ("meteor", "0-1", "higher", "Alignment-based metric with synonyms and stemming"),
+        ("sem_score", "0-1", "higher", "Cosine similarity of sentence embeddings"),
+        ("bert_score", "0-1", "higher", "Token-level semantic similarity using BERT"),
+        ("faithfulness", "0-1", "higher", "Whether the answer is supported by context"),
+        ("g_eval", "1-5", "higher", "LLM-as-judge: coherence, consistency, fluency, relevance"),
+        ("retrieval_token_f1", "0-1", "higher", "Token-level F1 of compressed passages"),
+        ("retrieval_token_recall", "0-1", "higher", "Token-level recall of compressed passages"),
+        ("retrieval_token_precision", "0-1", "higher", "Token-level precision of compressed passages"),
+        ("context_precision", "0-1", "higher", "RAGAS: context relevance (no ground truth needed)"),
     ]
 
-    print(f"  {'Metric':<25s} {'Range':<8s} {'Better':<10s} Description")
-    print(f"  {'-' * 25} {'-' * 8} {'-' * 10} {'-' * 45}")
+    print(f"  {'Metric':<28s} {'Range':<8s} {'Better':<10s} Description")
+    print(f"  {'-' * 28} {'-' * 8} {'-' * 10} {'-' * 48}")
     for name, rng, direction, desc in metrics:
-        print(f"  {name:<25s} {rng:<8s} {direction:<10s} {desc}")
+        print(f"  {name:<28s} {rng:<8s} {direction:<10s} {desc}")
 
     print()
     print("Interpreting your results:")
     print("  - Retrieval metrics > 0.7 indicate strong retrieval quality")
     print("  - BLEU > 0.3 is generally good for open-ended generation")
     print("  - ROUGE > 0.4 suggests good coverage of reference content")
+    print("  - G-Eval scores are 1-5; above 3.5 is good quality")
+    print("  - Compressor metrics measure how well compression preserves content")
+    print("  - context_precision (RAGAS) is useful when you lack retrieval ground truth")
     print("  - Compare across modules to see which configuration wins")
 
 
@@ -260,20 +345,32 @@ def main() -> None:
     print_header("Step 5: Run Queries with Runner")
     run_with_runner(trial_path)
 
-    print_header("Step 6: API Deployment (Explanation)")
-    explain_api_deployment()
-
-    print_header("Step 7: Metric Interpretation Guide")
+    print_header("Step 6: Metric Interpretation Guide")
     interpret_metrics()
 
+    print_header("Step 7: Pass Module Results")
+    explain_pass_module_results()
+
+    print_header("Step 8: FastAPI Deployment")
+    explain_api_deployment()
+
+    print_header("Step 9: Gradio Web Interface")
+    explain_gradio_deployment()
+
+    print_header("Step 10: Streamlit Dashboard")
+    explain_dashboard()
+
     print_header("Done")
-    print("You have analyzed AutoRAG results and deployed the optimal pipeline.")
+    print("You have analyzed AutoRAG results and explored deployment options.")
     print("You now know how to:")
     print("  - Read trial summaries to identify the best configuration")
     print("  - Extract the optimal config as a reusable YAML file")
     print("  - Run queries through the optimal pipeline using Runner")
-    print("  - Deploy the pipeline as a FastAPI server using ApiRunner")
-    print("  - Interpret evaluation metrics to assess quality")
+    print("  - Interpret evaluation metrics across all categories")
+    print("  - Understand pass module results and their implications")
+    print("  - Deploy via FastAPI (autorag run_api) for production APIs")
+    print("  - Deploy via Gradio (autorag run_web) for interactive testing")
+    print("  - Visualize results via Streamlit (autorag dashboard)")
     print()
     print("This completes Level 1, Module 3: Running Experiments.")
 
