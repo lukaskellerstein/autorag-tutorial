@@ -50,14 +50,15 @@ qa_df = pd.DataFrame({
 qa_df.to_parquet("qa.parquet", index=False)
 ```
 
-## LLM Configuration via LiteLLM
+## LLM Configuration via LlamaIndex
 
-AutoRAG uses LiteLLM for model access. For local Ollama:
+AutoRAG uses LlamaIndex LLM backends. For local Ollama:
 
 ```yaml
 # In config.yaml
-- module_type: llm
-  llm: "ollama/gemma4:e2b"
+- module_type: llama_index_llm
+  llm: ollama
+  model: gemma4:e2b
 ```
 
 ## Error Handling
@@ -74,8 +75,8 @@ AutoRAG uses LiteLLM for model access. For local Ollama:
   - Data preparation: `pandas`, `pyarrow`
   - QA generation: `autorag` (built-in generator)
   - Embedding models: `sentence-transformers`
-  - LLM access: handled via `litellm` (bundled with autorag)
-  - Vector DBs: `faiss-cpu`, `chromadb`, `qdrant-client` (as needed)
+  - LLM access: handled via LlamaIndex LLM backends (bundled with autorag)
+  - Vector DBs: `chromadb`, `qdrant-client`, `pymilvus` (as needed)
 
 ## Console Output
 

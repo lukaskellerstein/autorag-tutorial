@@ -10,40 +10,50 @@ globs: ["tutorial/**/*.py", "tutorial/**/*.yaml"]
 
 #### Fundamentals (L1-M1)
 - AutoRAG = AutoML for RAG pipeline optimization
-- Pipeline nodes: parsing → chunking → embedding → retrieval → reranking → generation
+- 8 optimization node types: query_expansion, lexical_retrieval, semantic_retrieval, hybrid_retrieval, passage_augmenter, passage_reranker, passage_filter, passage_compressor, prompt_maker, generator
+- Parsing and chunking are separate YAML-driven pipelines (not optimization nodes)
+- Pass modules: every node has a `pass_*` variant to test whether skipping the node is better
 - Greedy algorithm: selects best configuration at each node
 - Data format: `qa.parquet` (QA pairs) + `corpus.parquet` (document corpus)
-- CLI: `autorag evaluate`, `autorag dashboard`, `autorag deploy`
+- CLI: `autorag evaluate`, `autorag dashboard`, `autorag run_api`, `autorag run_web`
 
 #### Evaluation Data (L1-M2)
+- L1-M2.1: Parsing & Corpus Creation — YAML-driven parsing (Parser class) and chunking (Chunker class) pipelines
+- L1-M2.2: Creating QA Datasets — fluent API: corpus.sample().batch_apply().batch_filter().to_parquet()
 - QA dataset columns: `qid`, `query`, `retrieval_gt`, `generation_gt`
 - Corpus columns: `doc_id`, `contents`, `metadata`
-- QA generation: `autorag generate_qa` from corpus documents
 - Minimum ~50 QA pairs, recommended ~200+ for reliable optimization
 - Train/test split: optimization set vs validation set
 
 #### Running Experiments (L1-M3)
-- Configuration YAML: defines nodes, modules, and parameters to evaluate
-- Node types: `chunker`, `retriever`, `generator` (and `reranker`)
+- Configuration YAML: top-level `vectordb:` section + `node_lines:` with nodes and modules
+- Node types: `query_expansion`, `lexical_retrieval`, `semantic_retrieval`, `hybrid_retrieval`, `passage_augmenter`, `passage_reranker`, `passage_filter`, `passage_compressor`, `prompt_maker`, `generator`
 - Evaluation: `autorag evaluate --config config.yaml --qa qa.parquet --corpus corpus.parquet`
 - Dashboard: `autorag dashboard --trial_dir results/`
-- Deployment: `autorag deploy --trial_dir results/` (FastAPI server)
-- Metrics: retrieval (precision, recall, MRR, NDCG), generation (BLEU, ROUGE, F1, semantic similarity, faithfulness)
+- Deployment: `autorag run_api --trial_dir results/` (FastAPI) or `autorag run_web --trial_path results/0` (Gradio)
+- Metrics: retrieval (precision, recall, MRR, NDCG, MAP), generation (BLEU, ROUGE, METEOR, F1, semantic similarity, faithfulness, G-Eval, BERTScore, SemScore)
 
 ### Level 2 — Practitioner
 
-#### Advanced Retrieval (L2-M1.1)
-- Hybrid retrieval: BM25 + vector search
-- Reranking: cross-encoder, ColBERT, FlashRank
-- Multi-stage: coarse retrieval → fine reranking
-- Query expansion and transformation
+#### Intermediate Pipeline Nodes (L2-M1.1)
+- Deep dive into nodes between retrieval and generation
+- Query Expansion: HyDE, query_decompose, multi_query_expansion
+- Passage Augmenter: prev_next_augmenter
+- Passage Filter: similarity_threshold_cutoff, similarity_percentile_cutoff, recency_filter
+- Passage Compressor: tree_summarize, refine, LongLLMLingua
+- Prompt Maker: fstring, chat_fstring, long_context_reorder, window_replacement
 
-#### Embedding Comparison (L2-M1.2)
+#### Advanced Retrieval (L2-M1.2)
+- Hybrid retrieval: hybrid_rrf (Reciprocal Rank Fusion), hybrid_cc (Convex Combination)
+- 17+ reranker modules: flashrank, flag_embedding, colbert, cohere, jina, rankgpt, etc.
+- Multi-stage: coarse retrieval → fine reranking → filtering
+
+#### Embedding Comparison (L2-M1.3)
 - Multiple embedding models: nomic-embed-text, BGE, E5, GTE, OpenAI
+- VectorDB configuration: Chroma, Milvus, Weaviate, Pinecone, Couchbase, Qdrant
 - Dimensions, speed, and quality trade-offs
-- Cost analysis
 
-#### Custom Metrics (L2-M1.3)
+#### Custom Metrics (L2-M1.4)
 - Custom retrieval/generation metrics
 - LLM-as-judge metrics
 - Registering custom metrics with AutoRAG
@@ -61,24 +71,61 @@ globs: ["tutorial/**/*.py", "tutorial/**/*.yaml"]
 ## Configuration YAML Pattern
 
 ```yaml
+vectordb:
+  - name: default
+    db_type: chroma
+    client_type: persistent
+    path: ./chroma_db
+    embedding_model: openai
+    collection_name: openai
+
 node_lines:
-  - node_type: chunker
-    modules:
-      - module_type: token
-        chunk_size: [128, 256, 512]
-        chunk_overlap: [0, 32, 64]
-      - module_type: sentence
-  - node_type: retriever
-    modules:
-      - module_type: bm25
-        top_k: [3, 5, 10]
-      - module_type: vector
-        embedding_model: ["nomic-embed-text", "bge-small-en"]
-        top_k: [3, 5, 10]
-  - node_type: generator
-    modules:
-      - module_type: llm
-        llm: "ollama/gemma4:e2b"
+- node_line_name: retrieve_node_line
+  nodes:
+    - node_type: query_expansion
+      strategy:
+        metrics: [retrieval_f1, retrieval_recall]
+        retrieval_modules:
+          - module_type: bm25
+      modules:
+        - module_type: pass_query_expansion
+        - module_type: hyde
+          llm: ollama
+          model: gemma4:e2b
+    - node_type: lexical_retrieval
+      strategy:
+        metrics: [retrieval_f1, retrieval_recall]
+      top_k: 3
+      modules:
+        - module_type: bm25
+    - node_type: passage_reranker
+      strategy:
+        metrics: [retrieval_f1, retrieval_recall]
+      top_k: 3
+      modules:
+        - module_type: pass_reranker
+        - module_type: flashrank_reranker
+- node_line_name: post_retrieve_node_line
+  nodes:
+    - node_type: prompt_maker
+      strategy:
+        metrics: [bleu, rouge]
+        generator_modules:
+          - module_type: llama_index_llm
+            llm: ollama
+            model: gemma4:e2b
+      modules:
+        - module_type: fstring
+          prompt: "Read the passages and answer the question.\nQuestion: {query}\nPassage: {retrieved_contents}\nAnswer:"
+    - node_type: generator
+      strategy:
+        metrics:
+          - metric_name: bleu
+          - metric_name: rouge
+      modules:
+        - module_type: llama_index_llm
+          llm: ollama
+          model: [gemma4:e2b]
 ```
 
 ## Python API Pattern

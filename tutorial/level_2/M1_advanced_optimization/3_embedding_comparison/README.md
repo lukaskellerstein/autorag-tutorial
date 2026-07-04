@@ -1,4 +1,4 @@
-# L2-M1.2 — Embedding Model Comparison
+# L2-M1.3 — Embedding Model Comparison
 
 **Level:** Practitioner
 **Duration:** 45 min
@@ -9,7 +9,7 @@ The embedding model is the foundation of any semantic search pipeline -- it dete
 
 ## Prerequisites
 
-- Completed: L2-M1.1 (Advanced Retrieval Strategies)
+- Completed: L2-M1.2 (Advanced Retrieval Strategies)
 - Ollama running with `gemma4:e2b` model pulled (`ollama pull gemma4:e2b`)
 - Python 3.10+, `uv` installed
 
@@ -37,6 +37,14 @@ The right dimensionality depends on your corpus size, query complexity, and infr
 |---|---|---|---|
 | BAAI/bge-small-en-v1.5 | 384 | ~130 MB | Lightweight, fast indexing, English-optimized. Part of the BGE family trained with contrastive learning on large English corpora. Good baseline for prototyping. |
 | all-mpnet-base-v2 | 768 | ~420 MB | Based on Microsoft MPNet, fine-tuned by sentence-transformers on over 1 billion training pairs. Higher quality embeddings at the cost of larger vectors and slower encoding. |
+
+### vLLM as Embedding Backend
+
+For large embedding models or GPU-accelerated scenarios, vLLM can serve embeddings through its OpenAI-compatible API. This is useful when you need to run models with over 1 billion parameters (e.g., e5-mistral-7b-instruct) or need high-throughput indexing of large corpora. For small models (<500M params) like bge-small or MiniLM, local sentence-transformers is sufficient.
+
+### VectorDB Configuration
+
+AutoRAG supports multiple vector databases through the `vectordb` section in `config.yaml`. Each entry specifies a database type (Chroma, Milvus, Weaviate, Pinecone, Couchbase, Qdrant), an embedding model, and connection parameters. Different vectordb entries can use different embedding models, allowing AutoRAG to compare embeddings by creating separate indices.
 
 ## Step-by-Step
 
@@ -86,7 +94,7 @@ After the evaluation completes, `results/0/summary.csv` contains per-module metr
 ## Running the Lesson
 
 ```bash
-cd tutorial/level_2/M1_advanced_optimization/2_embedding_comparison
+cd tutorial/level_2/M1_advanced_optimization/3_embedding_comparison
 uv sync
 uv run python main.py
 ```
@@ -95,7 +103,7 @@ uv run python main.py
 
 ```
 ============================================================
-L2-M1.2 — Embedding Model Comparison
+L2-M1.3 — Embedding Model Comparison
 ============================================================
 
 ============================================================
@@ -125,7 +133,7 @@ Embedding models compared in this lesson:
 ...
 
 ============================================================
-Step 7: Recommendations
+Step 9: Recommendations
 ============================================================
 Recommendations:
 
@@ -149,4 +157,4 @@ works best for your use case.
 
 ## Next Steps
 
-In **L2-M1.3 -- Custom Evaluation Metrics**, you will learn how to define domain-specific metrics beyond the built-in BLEU, ROUGE, and retrieval scores, and register them with AutoRAG to optimize for what matters most in your application.
+In **L2-M1.4 -- Custom Evaluation Metrics**, you will learn how to define domain-specific metrics beyond the built-in BLEU, ROUGE, and retrieval scores, and register them with AutoRAG to optimize for what matters most in your application.

@@ -74,14 +74,17 @@ All checks passed! AutoRAG is ready for tutorial lessons.
 
 ## How AutoRAG Uses Ollama
 
-AutoRAG uses LiteLLM under the hood. In your `config.yaml`, reference Ollama models with the `ollama/` prefix:
+AutoRAG uses LlamaIndex LLM backends. In your `config.yaml`, configure the generator with separate `llm` (backend) and `model` fields:
 
 ```yaml
 node_lines:
-  - node_type: generator
-    modules:
-      - module_type: llm
-        llm: "ollama/gemma4:e2b"
+- node_line_name: post_retrieve_node_line
+  nodes:
+    - node_type: generator
+      modules:
+        - module_type: llama_index_llm
+          llm: ollama
+          model: gemma4:e2b
 ```
 
 Make sure Ollama is running before starting any AutoRAG evaluation.
@@ -96,10 +99,13 @@ autorag evaluate --config config.yaml --qa qa.parquet --corpus corpus.parquet
 autorag dashboard --trial_dir results/
 
 # Deploy the optimal pipeline as a FastAPI server
-autorag deploy --trial_dir results/
+autorag run_api --trial_dir results/
 
-# Generate QA data from a corpus
-autorag generate_qa --corpus corpus.parquet --llm "ollama/gemma4:e2b"
+# Launch Gradio web interface for testing
+autorag run_web --trial_path results/0
+
+# Extract the best configuration from a trial
+autorag extract_best_config --trial_path results/0
 ```
 
 ## Data Format

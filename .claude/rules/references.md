@@ -17,7 +17,7 @@ Always consult these sources when building lessons. Do NOT guess at APIs — rea
 - **Website**: https://ollama.ai
 - **Model library**: https://ollama.ai/library
 - Default model: `gemma4:e2b`
-- Used via LiteLLM in AutoRAG config as `ollama/gemma4:e2b`
+- Used via LlamaIndex in AutoRAG config as `llm: ollama` + `model: gemma4:e2b`
 
 ## Embedding Models
 - **sentence-transformers**: https://www.sbert.net/
@@ -25,8 +25,11 @@ Always consult these sources when building lessons. Do NOT guess at APIs — rea
 - Common models: `nomic-embed-text`, `bge-small-en`, `all-MiniLM-L6-v2`
 
 ## Vector Databases (AutoRAG-supported)
-- **FAISS**: https://github.com/facebookresearch/faiss
 - **Chroma**: https://docs.trychroma.com/
+- **Milvus**: https://milvus.io/docs
+- **Weaviate**: https://weaviate.io/developers/weaviate
+- **Pinecone**: https://docs.pinecone.io/
+- **Couchbase**: https://docs.couchbase.com/
 - **Qdrant**: https://qdrant.tech/documentation/
 
 ## How to Use References

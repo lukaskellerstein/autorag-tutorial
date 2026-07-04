@@ -24,12 +24,18 @@ def load_config() -> dict[str, Any]:
 
     print(f"Loaded config from: {config_path.name}")
     print(f"Top-level keys: {list(config.keys())}")
+    if "vectordb" in config:
+        print(f"Vector DB configs: {len(config['vectordb'])}")
     print(f"Number of node_lines: {len(config['node_lines'])}")
     return config
 
 
 def explain_structure(config: dict[str, Any]) -> None:
     """Walk through the hierarchical config structure."""
+    if "vectordb" in config:
+        print("Top-level sections:")
+        print("  vectordb            (vector database configuration)")
+        print("  node_lines          (pipeline stages)\n")
     print("AutoRAG config follows a 4-level hierarchy:\n")
     print("  node_lines          (top level — pipeline stages)")
     print("    -> nodes          (processing steps within a stage)")
@@ -177,23 +183,125 @@ def explain_metrics() -> None:
         ("retrieval_precision", "Retrieval", "Fraction of retrieved documents that are relevant"),
         ("retrieval_ndcg", "Retrieval", "Normalized discounted cumulative gain — rewards relevant docs ranked higher"),
         ("retrieval_mrr", "Retrieval", "Mean reciprocal rank — position of the first relevant result"),
+        ("retrieval_map", "Retrieval", "Mean average precision — average precision across all recall levels"),
         ("bleu", "Generation", "N-gram overlap between generated and reference text"),
         ("meteor", "Generation", "Alignment-based similarity using synonyms and stemming"),
         ("rouge", "Generation", "Recall-oriented n-gram overlap with reference text"),
         ("sem_score", "Generation", "Cosine similarity of sentence embeddings (semantic similarity)"),
-        ("g_eval", "Generation", "LLM-as-judge — uses a language model to score output quality"),
+        ("g_eval", "Generation", "LLM-as-judge — coherence, consistency, fluency, relevance"),
+        ("bert_score", "Generation", "Token-level semantic similarity using BERT embeddings"),
+        ("faithfulness", "Generation", "Measures whether the answer is supported by retrieved context"),
+        ("retrieval_token_f1", "Compressor", "Token-level F1 between compressed and original passages"),
+        ("retrieval_token_recall", "Compressor", "Token-level recall of compressed passages"),
+        ("retrieval_token_precision", "Compressor", "Token-level precision of compressed passages"),
+        ("context_precision", "RAGAS", "Relevance of retrieved context (no ground truth needed)"),
     ]
 
-    # Print header
-    print(f"  {'Metric':<25} {'Category':<12} {'Description'}")
-    print(f"  {'-' * 25} {'-' * 12} {'-' * 55}")
+    print(f"  {'Metric':<28} {'Category':<12} {'Description'}")
+    print(f"  {'-' * 28} {'-' * 12} {'-' * 55}")
 
     for name, category, description in metrics:
-        print(f"  {name:<25} {category:<12} {description}")
+        print(f"  {name:<28} {category:<12} {description}")
 
     print(f"\n  Total: {len(metrics)} metrics available")
     print(f"  Retrieval metrics require retrieval_gt in the QA dataset")
     print(f"  Generation metrics require generation_gt in the QA dataset")
+    print(f"  Compressor metrics evaluate passage compression quality")
+    print(f"  RAGAS context_precision does not require retrieval ground truth")
+
+
+def explain_vectordb_section(config: dict[str, Any]) -> None:
+    """Explain the top-level vectordb configuration."""
+    vectordb = config.get("vectordb")
+    if not vectordb:
+        print("No vectordb section found in this config.")
+        print("AutoRAG will use default in-memory settings.")
+        return
+
+    print("The top-level 'vectordb' section configures the vector database")
+    print("backend used by retrieval nodes (vector, hybrid_rrf, hybrid_cc).\n")
+
+    for db in vectordb:
+        print(f"  Name:            {db.get('name', 'N/A')}")
+        print(f"  DB type:         {db.get('db_type', 'N/A')}")
+        print(f"  Client type:     {db.get('client_type', 'N/A')}")
+        print(f"  Path:            {db.get('path', 'N/A')}")
+        print(f"  Embedding model: {db.get('embedding_model', 'N/A')}")
+        print(f"  Collection:      {db.get('collection_name', 'N/A')}")
+        print()
+
+    print("Supported vector databases:")
+    print("  Chroma, Milvus, Weaviate, Pinecone, Couchbase, Qdrant")
+    print()
+    print("The vectordb section is separate from node_lines because it")
+    print("defines shared infrastructure that multiple retrieval modules use.")
+
+
+def explain_pass_modules() -> None:
+    """Explain the pass_* module concept."""
+    print("Every node type has a pass_* variant (except generator):\n")
+
+    pass_modules = [
+        ("pass_query_expansion", "Skips query expansion — uses the original query as-is"),
+        ("pass_passage_augmenter", "Skips augmentation — uses retrieved passages without adding context"),
+        ("pass_reranker", "Skips reranking — keeps the retriever's original ordering"),
+        ("pass_passage_filter", "Skips filtering — keeps all retrieved passages"),
+        ("pass_compressor", "Skips compression — passes full passage text to the prompt"),
+    ]
+
+    for name, desc in pass_modules:
+        print(f"  {name:<28s} {desc}")
+
+    print()
+    print("Why include pass modules?")
+    print("  AutoRAG tests whether each processing step actually helps.")
+    print("  If pass_reranker wins over flashrank_reranker, it means")
+    print("  reranking hurts performance on your data — a valuable finding.")
+    print("  This is fundamental to AutoRAG's optimization philosophy:")
+    print("  more processing is not always better.")
+
+
+def explain_optimization_strategies() -> None:
+    """Explain the optimization strategy options."""
+    print("The strategy section supports different optimization methods:\n")
+
+    strategies = [
+        ("mean (default)", "Averages metric scores across all QA pairs.\n"
+         "                         Best for balanced optimization."),
+        ("rank", "Uses reciprocal rank fusion to combine metric rankings.\n"
+         "                         Robust when metrics have different scales."),
+        ("normalize_mean", "Normalizes scores to [0,1] before averaging.\n"
+         "                         Useful when combining metrics with different ranges."),
+    ]
+
+    for name, desc in strategies:
+        print(f"  {name:<24s} {desc}")
+
+    print()
+    print("Example usage in YAML:")
+    print("  strategy:")
+    print("    metrics: [retrieval_f1, retrieval_recall]")
+    print("    strategy_name: rank  # default is 'mean'")
+
+
+def explain_speed_threshold() -> None:
+    """Explain the speed_threshold parameter."""
+    print("The speed_threshold parameter adds a latency constraint to node")
+    print("optimization. Modules slower than the threshold are excluded,")
+    print("even if they score higher on quality metrics.\n")
+
+    print("Example usage in YAML:")
+    print("  strategy:")
+    print("    metrics: [retrieval_f1, retrieval_recall]")
+    print("    speed_threshold: 5.0  # seconds per query\n")
+
+    print("When to use speed_threshold:")
+    print("  - Production systems with response time SLAs")
+    print("  - When a module scores slightly better but is 10x slower")
+    print("  - To automatically filter out impractical configurations\n")
+
+    print("Without speed_threshold, AutoRAG selects purely on quality.")
+    print("With it, quality is optimized subject to the latency constraint.")
 
 
 def validate_config(config: dict[str, Any]) -> None:
@@ -283,27 +391,47 @@ def main() -> None:
     explain_structure(config)
 
     print("\n" + "=" * 60)
-    print("Step 3: Node lines — pipeline stages")
+    print("Step 3: Vector database configuration")
+    print("=" * 60)
+    explain_vectordb_section(config)
+
+    print("\n" + "=" * 60)
+    print("Step 4: Node lines — pipeline stages")
     print("=" * 60)
     explain_node_lines(config)
 
     print("\n" + "=" * 60)
-    print("Step 4: Count configurations to test")
+    print("Step 5: Pass modules — testing whether nodes help")
+    print("=" * 60)
+    explain_pass_modules()
+
+    print("\n" + "=" * 60)
+    print("Step 6: Count configurations to test")
     print("=" * 60)
     count_configurations(config)
 
     print("\n" + "=" * 60)
-    print("Step 5: Strategy — greedy optimization")
+    print("Step 7: Strategy — greedy optimization")
     print("=" * 60)
     explain_strategy(config)
 
     print("\n" + "=" * 60)
-    print("Step 6: Metrics reference")
+    print("Step 8: Optimization strategies")
+    print("=" * 60)
+    explain_optimization_strategies()
+
+    print("\n" + "=" * 60)
+    print("Step 9: Speed threshold")
+    print("=" * 60)
+    explain_speed_threshold()
+
+    print("\n" + "=" * 60)
+    print("Step 10: Metrics reference")
     print("=" * 60)
     explain_metrics()
 
     print("\n" + "=" * 60)
-    print("Step 7: Validate configuration")
+    print("Step 11: Validate configuration")
     print("=" * 60)
     validate_config(config)
 

@@ -1,8 +1,9 @@
 """
-L1-M2.2 — Preparing the Corpus
+L1-M2.1 — Parsing and Corpus Creation
 
-Demonstrates how to prepare a document corpus in AutoRAG's required format.
-Covers text preprocessing, metadata enrichment, validation, and persistence.
+Demonstrates AutoRAG's parsing and chunking pipelines, then builds a document
+corpus in AutoRAG's required format with text preprocessing, metadata
+enrichment, validation, and persistence.
 """
 
 import os
@@ -174,6 +175,145 @@ RAW_DOCUMENTS: list[dict[str, str]] = [
 ]
 
 
+def print_section(title: str) -> None:
+    """Print a formatted section header."""
+    print()
+    print("=" * 60)
+    print(title)
+    print("=" * 60)
+
+
+def explain_parsing_pipeline() -> None:
+    """Explain AutoRAG's YAML-driven parsing pipeline."""
+    print("  AutoRAG provides a Parser class that converts raw documents")
+    print("  (PDF, HTML, Markdown, CSV, etc.) into a parsed DataFrame.")
+    print()
+    print("  Usage:")
+    print("    from autorag.parser import Parser")
+    print()
+    print("    parser = Parser(")
+    print('        data_path_glob="./data/*.pdf",')
+    print('        project_dir="./project"')
+    print("    )")
+    print('    parser.start_parsing("parse_config.yaml")')
+    print()
+    print("  Available parse modules:")
+    print("    - langchain_parse: supports multiple backends")
+    print("        file_type: pdf  -> parse_method: pdfminer")
+    print("        file_type: csv  -> parse_method: csv")
+    print("        file_type: md   -> parse_method: unstructuredmarkdown")
+    print("        file_type: html -> parse_method: bshtml")
+    print("    - llamaparse: LlamaParse cloud-based parser")
+    print("    - clova: Clova OCR-based parser")
+    print("    - table_hybrid_parse: specialized table extraction")
+    print()
+    print("  The parser produces a parsed_result.parquet file containing")
+    print("  the extracted text from each document.")
+
+
+def show_parsing_yaml() -> None:
+    """Print a sample parsing YAML configuration."""
+    yaml_content = """\
+  modules:
+    - module_type: langchain_parse
+      file_type: pdf
+      parse_method: pdfminer"""
+
+    print("  Sample parse_config.yaml:")
+    print()
+    print(yaml_content)
+    print()
+    print("  For multiple file types, add additional module entries:")
+    print()
+    print("  modules:")
+    print("    - module_type: langchain_parse")
+    print("      file_type: pdf")
+    print("      parse_method: pdfminer")
+    print("    - module_type: langchain_parse")
+    print("      file_type: csv")
+    print("      parse_method: csv")
+
+
+def explain_chunking_pipeline() -> None:
+    """Explain AutoRAG's YAML-driven chunking pipeline."""
+    print("  After parsing, AutoRAG's Chunker class splits the parsed")
+    print("  text into smaller passages suitable for retrieval.")
+    print()
+    print("  Usage:")
+    print("    from autorag.chunker import Chunker")
+    print()
+    print("    chunker = Chunker.from_parquet(")
+    print('        "parsed_result.parquet",')
+    print('        project_dir="./project"')
+    print("    )")
+    print('    chunker.start_chunking("chunk_config.yaml")')
+    print()
+    print("  Available chunk modules:")
+    print()
+    print("  llama_index_chunk methods:")
+    print("    - Token: fixed token-count chunks")
+    print("    - Sentence: split on sentence boundaries")
+    print("    - SentenceWindow: sentence + surrounding context window")
+    print("    - Semantic: group by semantic similarity")
+    print("    - SemanticDoubleMerging: two-pass semantic grouping")
+    print()
+    print("  langchain_chunk methods:")
+    print("    - recursivecharacter: recursive character splitting")
+    print("    - sentencetransformerstoken: token-aware splitting")
+    print()
+    print("  The chunker produces a corpus.parquet file with doc_id,")
+    print("  contents, and metadata columns.")
+
+
+def show_chunking_yaml() -> None:
+    """Print a sample chunking YAML configuration."""
+    yaml_content = """\
+  modules:
+    - module_type: llama_index_chunk
+      chunk_method: Token
+      chunk_size: 512
+      chunk_overlap: 24"""
+
+    print("  Sample chunk_config.yaml:")
+    print()
+    print(yaml_content)
+    print()
+    print("  Other examples:")
+    print()
+    print("  modules:")
+    print("    - module_type: llama_index_chunk")
+    print("      chunk_method: Sentence")
+    print()
+    print("  modules:")
+    print("    - module_type: langchain_chunk")
+    print("      chunk_method: recursivecharacter")
+    print("      chunk_size: 256")
+    print("      chunk_overlap: 32")
+
+
+def explain_raw_to_corpus_flow() -> None:
+    """Show the complete Raw -> parse -> chunk -> corpus.parquet flow."""
+    print("  The full pipeline from raw files to corpus.parquet:")
+    print()
+    print("  1. Raw Documents (PDF, HTML, Markdown, CSV, ...)")
+    print("         |")
+    print("         v")
+    print("  2. Parser (parse_config.yaml)")
+    print("         -> parsed_result.parquet")
+    print("         |")
+    print("         v")
+    print("  3. Chunker (chunk_config.yaml)")
+    print("         -> corpus.parquet (doc_id, contents, metadata)")
+    print("         |")
+    print("         v")
+    print("  4. Ready for AutoRAG evaluation!")
+    print()
+    print("  In this lesson, we build corpus.parquet manually from")
+    print("  in-memory text so you understand the required format.")
+    print("  In production, you would use the Parser and Chunker")
+    print("  classes with YAML configs to process real document files.")
+
+
 def normalize_whitespace(text: str) -> str:
     """Strip leading/trailing whitespace and collapse internal whitespace."""
     text = text.strip()
@@ -189,7 +329,6 @@ def preprocess_documents(docs: list[dict[str, str]]) -> list[dict[str, str]]:
     for doc in docs:
         content = normalize_whitespace(doc["text"])
 
-        # Deduplicate by exact content match
         if content in seen_contents:
             print(f"  [SKIP] Duplicate detected for topic '{doc['topic']}'")
             continue
@@ -247,19 +386,35 @@ def print_corpus_statistics(df: pd.DataFrame) -> None:
 
 def main() -> None:
     # ------------------------------------------------------------------
-    print("=" * 60)
-    print("Step 1: Raw Document Collection")
-    print("=" * 60)
+    print_section("L1-M2.1 — Parsing and Corpus Creation")
+
+    # ------------------------------------------------------------------
+    print_section("Step 1: AutoRAG Parsing Pipeline")
+    explain_parsing_pipeline()
+
+    # ------------------------------------------------------------------
+    print_section("Step 2: Parsing YAML Configuration")
+    show_parsing_yaml()
+
+    # ------------------------------------------------------------------
+    print_section("Step 3: AutoRAG Chunking Pipeline")
+    explain_chunking_pipeline()
+
+    # ------------------------------------------------------------------
+    print_section("Step 4: Chunking YAML Configuration")
+    show_chunking_yaml()
+
+    # ------------------------------------------------------------------
+    print_section("Step 5: Raw-to-Corpus Flow")
+    explain_raw_to_corpus_flow()
+
+    # ------------------------------------------------------------------
+    print_section("Step 6: Raw Document Collection (manual approach)")
     print(f"  Loaded {len(RAW_DOCUMENTS)} raw documents")
     print(f"  Topics: {[d['topic'] for d in RAW_DOCUMENTS]}")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 2: Text Preprocessing")
-    print("=" * 60)
-
-    # Show before/after for the first document
+    print_section("Step 7: Text Preprocessing")
     sample_raw = RAW_DOCUMENTS[0]["text"]
     sample_clean = normalize_whitespace(sample_raw)
     print(f"\n  --- Before (first 120 chars) ---")
@@ -271,10 +426,7 @@ def main() -> None:
     print(f"\n  Documents after preprocessing: {len(cleaned_docs)}")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 3: Building the Corpus DataFrame")
-    print("=" * 60)
+    print_section("Step 8: Building the Corpus DataFrame")
     corpus_df = build_corpus_dataframe(cleaned_docs)
     print(f"  DataFrame shape: {corpus_df.shape}")
     print(f"  Columns: {list(corpus_df.columns)}")
@@ -283,46 +435,31 @@ def main() -> None:
         print(f"    {row['doc_id']}: {row['contents'][:70]}...")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 4: Metadata Inspection")
-    print("=" * 60)
+    print_section("Step 9: Metadata Inspection")
     sample_meta = corpus_df.iloc[0]["metadata"]
     print(f"  Sample metadata (doc_001):")
     for key, value in sample_meta.items():
         print(f"    {key}: {value}")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 5: Validation with AutoRAG")
-    print("=" * 60)
+    print_section("Step 10: Validation with AutoRAG")
     validated_df = cast_corpus_dataset(corpus_df)
     print("  cast_corpus_dataset() passed successfully!")
     print(f"  Validated DataFrame shape: {validated_df.shape}")
     print(f"  Validated columns: {list(validated_df.columns)}")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 6: Corpus Statistics")
-    print("=" * 60)
+    print_section("Step 11: Corpus Statistics")
     print_corpus_statistics(corpus_df)
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 7: Saving to Parquet")
-    print("=" * 60)
+    print_section("Step 12: Saving to Parquet")
     os.makedirs("data", exist_ok=True)
     corpus_df.to_parquet("data/corpus.parquet")
     print("  Saved corpus to data/corpus.parquet")
 
     # ------------------------------------------------------------------
-    print()
-    print("=" * 60)
-    print("Step 8: Loading and Verification")
-    print("=" * 60)
+    print_section("Step 13: Loading and Verification")
     loaded_df = pd.read_parquet("data/corpus.parquet")
     print(f"  Loaded DataFrame shape: {loaded_df.shape}")
     print(f"  Columns: {list(loaded_df.columns)}")
@@ -330,6 +467,10 @@ def main() -> None:
     for _, row in loaded_df.head(5).iterrows():
         print(f"    {row['doc_id']}: {row['contents'][:60]}...")
     print("\n  Corpus saved and reloaded successfully!")
+
+    # ------------------------------------------------------------------
+    print_section("Done!")
+    print("  Corpus is ready. Next: L1-M2.2 Creating QA Datasets")
 
 
 if __name__ == "__main__":

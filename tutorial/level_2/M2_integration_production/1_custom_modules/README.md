@@ -10,7 +10,7 @@ AutoRAG's power comes from its modular architecture -- every step in the RAG pip
 ## Prerequisites
 
 - Completed: L1-M3.2 (Evaluation Basics)
-- Completed: L2-M1.3 (Custom Evaluation Metrics)
+- Completed: L2-M1.4 (Custom Evaluation Metrics)
 - Python 3.10+ with `uv` installed
 
 ## Concepts
