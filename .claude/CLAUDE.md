@@ -25,7 +25,7 @@ The full syllabus lives in `syllabus.md` — always consult it for module struct
 
 ```
 syllabus.md                         # Master syllabus — the source of truth
-autorag-local/                      # Local setup: Ollama + AutoRAG verification
+infra/                              # Local setup: Ollama + AutoRAG verification
   main.py                           #   Verification script
   pyproject.toml                    #   uv project with autorag dependency
   README.md                         #   Setup guide
@@ -70,7 +70,7 @@ ollama serve &
 ollama pull gemma4:e2b
 
 # Verify setup
-cd autorag-local
+cd infra
 uv sync
 uv run python main.py
 ```

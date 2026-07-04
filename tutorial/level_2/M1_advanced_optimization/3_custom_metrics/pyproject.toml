@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L2-M1-custom-metrics"
+version = "0.1.0"
+description = "Custom Evaluation Metrics"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3", "pandas>=2.0", "pyarrow>=14.0"]

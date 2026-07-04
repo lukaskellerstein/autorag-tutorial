@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L1-M1-what-is-autorag"
+version = "0.1.0"
+description = "What is AutoRAG? How It Works"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3"]

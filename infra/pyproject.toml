@@ -1,5 +1,5 @@
 [project]
-name = "autorag-local"
+name = "autorag-infra"
 version = "0.1.0"
 description = "AutoRAG local development setup and verification"
 readme = "README.md"

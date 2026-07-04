@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L1-M2-preparing-corpus"
+version = "0.1.0"
+description = "Preparing the Corpus"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3", "pandas>=2.0", "pyarrow>=14.0"]

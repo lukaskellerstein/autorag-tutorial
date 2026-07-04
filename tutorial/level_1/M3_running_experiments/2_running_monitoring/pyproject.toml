@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L1-M3-running-monitoring"
+version = "0.1.0"
+description = "Running and Monitoring AutoRAG Evaluations"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3", "pandas>=2.0", "pyarrow>=14.0", "httpx>=0.27"]

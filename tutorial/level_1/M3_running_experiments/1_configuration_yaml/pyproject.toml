@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L1-M3-configuration-yaml"
+version = "0.1.0"
+description = "AutoRAG Configuration YAML"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3", "pyyaml>=6.0"]

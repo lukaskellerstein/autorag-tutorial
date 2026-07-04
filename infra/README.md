@@ -57,7 +57,7 @@ ollama pull gemma4:e2b
 ### 2. Install AutoRAG and verify
 
 ```bash
-cd autorag-local
+cd infra
 uv sync
 uv run python main.py
 ```

@@ -1,0 +1,6 @@
+[project]
+name = "autorag-tutorial-L2-M2-autorag-to-openshift"
+version = "0.1.0"
+description = "From AutoRAG to OpenShift AI"
+requires-python = ">=3.10"
+dependencies = ["autorag>=0.3", "pyyaml>=6.0"]
